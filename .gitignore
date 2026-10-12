@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+**/__pycache__/
+.env*
+*.pem
+*.key
+*.pfx
+*.p12
+*.save
+*.zip
+*.ts4script
+*.log
+backups/
+artifacts/
+.venv/
+.codex-tmp/

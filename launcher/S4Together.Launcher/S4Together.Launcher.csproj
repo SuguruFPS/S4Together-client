@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>S4Together</AssemblyName>
+    <RootNamespace>S4Together.Launcher</RootNamespace>
+    <Product>S4Together Launcher</Product>
+    <Version>0.1.23</Version>
+    <!-- Le ZIP distribue un seul exe : les DLL natives WPF doivent être incluses aussi. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF lit la résolution dans app.manifest ; WFO0003 ne vise que les applications WinForms. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- WinForms seulement pour l'icône de la zone de notification : pas d'using global (conflits avec WPF). -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\S4Together.Launcher.Core\S4Together.Launcher.Core.csproj" />
+  </ItemGroup>
+</Project>

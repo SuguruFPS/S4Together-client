@@ -1,0 +1,84 @@
+S4Together 0.1.23-game-test — mod de test, launcher 0.1.23 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+MISE À JOUR AUTOMATIQUE
+À chaque démarrage, le launcher vérifie la dernière version publiée sur
+https://github.com/SuguruFPS/S4Together-client/releases, contrôle son empreinte SHA256, puis se
+remplace et redémarre seul (mod inclus). Si la nouvelle version ne démarre pas, l'ancienne revient.
+Rien n'est installé tant que Les Sims 4 est ouvert. Sans Internet, le launcher installé reste utilisable.
+
+DÉMARRER
+1. Décompresse le ZIP dans un dossier normal (pas dans Mods), puis lance S4Together.exe.
+   Aucun .NET à installer. Windows SmartScreen peut avertir : l'exécutable n'est pas signé.
+2. Onglet « Paramètres » : le launcher détecte Les Sims 4 (EA app ou Steam), la version, les packs
+   et ton dossier Mods. Il installe ou répare le mod seulement après ta confirmation,
+   jeu fermé, avec une copie de sauvegarde des anciens fichiers S4Together.
+   Il peut aussi activer les mods de script dans Options.ini, toujours avec ton accord.
+3. Onglet « Serveur » : adresse IP LAN ou publique, port, nom, mot de passe.
+   Depuis Internet : l'adresse et le port TLS que l'hôte te donne (connexion chiffrée automatique).
+   Sur Internet, une connexion WSS avec certificat valide est obligatoire ; une IP publique seule
+   est convertie en WSS. Le serveur doit fournir ce transport ; aucun repli en clair n'est effectué.
+   « Tester le serveur » vérifie le serveur sans t'y connecter. « Se connecter » ouvre la session.
+   Le mot de passe n'est mémorisé que si tu le demandes, chiffré pour ton compte Windows.
+4. La connexion ouvre « Personnages ». Clique sur la carte de ta sauvegarde ou sur « + Nouveau personnage ».
+   Le bouton « Rejoindre » en bas à droite s'active seulement après ce choix. Tu peux modifier le nom dans le détail.
+   « Rejoindre » enregistre le choix sur le serveur et lance le jeu. Les erreurs et l'avancement restent visibles à côté du bouton.
+   Un choix local ou nouveau ne reprend plus par erreur un autre personnage déjà enregistré sur le serveur.
+   Pour reprendre un personnage du serveur, sélectionne explicitement sa carte.
+   « Tes Sims sur ce PC » lit les noms des foyers joués dans saves et des foyers de Ma bibliothèque dans Tray.
+   Chaque Sim apparaît une seule fois avec sa sauvegarde la plus récente (date du fichier).
+   L'image du foyer est affichée si une vignette JPEG/PNG lisible existe pour ce foyer ; sinon un message l'indique.
+   Accueil, Serveur et Paramètres restent visibles hors connexion ; les autres catégories apparaissent connecté.
+   Si la liste est vide, choisis le dossier Documents/Electronic Arts/Les Sims 4 (ou The Sims 4), pas l'installation du jeu.
+   La carte sélectionnée prépare directement son nom et le mode import ;
+   dans le jeu, place son foyer depuis Ma bibliothèque dans une Nouvelle partie dédiée.
+   Si le Sim vient d'une sauvegarde, enregistre d'abord ce foyer dans Ma bibliothèque depuis le jeu.
+   La lecture locale ne modifie ni n'envoie les sauvegardes ; elle ne transfère pas automatiquement le Sim.
+   La seconde liste contient uniquement les personnages du serveur. Maximum 4 personnages. Le mod agit sur
+   le foyer chargé (argent, relations) : joue toujours dans une Nouvelle partie dédiée et ne charge jamais ta
+   sauvegarde solo avec un personnage choisi. Sauvegarde le dossier « saves » avant le premier essai.
+   Garde le launcher ouvert (il peut se
+   réduire près de l'horloge) : le mod passe par lui pour parler au serveur.
+5. À la première création/importation, choisis « Nouvelle partie » et enregistre une partie multijoueur distincte.
+   Ensuite choisis ton personnage dans la section Multijoueur du launcher et reprends cette partie.
+   Si « Reprendre » propose ton foyer solo, utilise « Charger la partie » et le nom de ta sauvegarde multijoueur.
+   Le launcher reconnaît les sauvegardes liées par les identifiants du foyer et des Sims, jamais leurs noms seuls.
+   Une fois le foyer chargé en mode Vie, le mod se connecte seul au launcher.
+   Le tchat et la liste des joueurs sont accessibles après connexion dans « Tchat et joueurs ».
+6. Saison du monde (pack Saisons requis) : le premier joueur connecté choisit la saison de départ dans l'Accueil
+   du launcher, une seule fois pour tout le monde. Sans Saisons, on joue sans saison partagée.
+   Le mod l'applique une seule fois quand ton foyer est chargé (même effet que la commande seasons.set_season) ;
+   ensuite elle avance normalement. Vérifier : Ctrl+Maj+C puis s4t.season.
+7. Personnage en jeu : au premier chargement, le mod relie ton foyer actif au personnage choisi,
+   donne l'argent de départ du serveur (une seule fois, sauf import avec ton argent) et efface les
+   relations avec les Sims hors foyer qui ne sont pas de ta famille. Ensuite, l'argent est enregistré
+   sur le serveur environ toutes les minutes et restauré quand tu recharges la partie (un simple voyage garde
+   l'argent du jeu). Si le jeu coupe pendant la liaison, elle est reprise au chargement suivant sans rien
+   donner deux fois. Vérifier : s4t.character.
+
+SI LE MOD NE SE CONNECTE PAS
+Ctrl+Maj+C puis s4t.diagnostic. Commande inconnue = le script ne s'est pas chargé
+(mods de script désactivés, ou fichier mal placé) : c'est un échec à signaler.
+Onglet « Diagnostic » : « Exporter (sans secret)… » produit un rapport sans mot de passe ni jeton.
+
+RÉSEAU
+127.0.0.1 désigne le PC où tourne le jeu, pas le PC serveur.
+LAN : IPv4 réelle du serveur sur le même réseau et port TCP du serveur.
+Internet : IP publique ou domaine, port TCP accessible (redirection du port et pare-feu côté hébergeur).
+Sans wss://, les échanges et le mot de passe ne sont pas chiffrés. wss:// exige un certificat valide.
+Le launcher fait le TLS ; le jeu (Python sans ssl) ne parle qu'au launcher, en local.
+Le pont local écoute uniquement sur 127.0.0.1, avec un jeton secret renouvelé à chaque session.
+
+LIMITES DE CETTE VERSION
+La présence et les poses natives sont publiées automatiquement après la liaison du personnage.
+Nouveau (0.1.17, non testé en jeu) : l'apparence de ton Sim est envoyée au serveur ; dans ta partie
+multijoueur, chaque autre joueur devient un vrai Sim du jeu, foyer « Nom (S4T) », qui emménage dans la
+maison qu'il habite chez lui (si elle est libre chez toi). Tu peux le croiser en ville et lui parler comme
+à un Sim du quartier. Ses déplacements et animations en direct ne sont PAS encore synchronisés.
+La construction et les sauvegardes natives complètes ne sont pas synchronisées.
+0.1.18 : sections solo/multijoueur, reprise exacte sans création doublon, suppression du personnage serveur
+(jeu fermé, confirmation ; sauvegardes locales, foyer et propriété conservés). Console : connexions, Sim en jeu,
+voyages, positions acceptées et résumé toutes les 30 secondes ; refus répétés regroupés.
+Correctifs : cache d'apparence par session, publication limitée au Sim lié en jeu, occupation des maisons relue
+avant emménagement, clone incomplet non marqué réussi. Une maison déjà occupée chez l'autre joueur est refusée.
+Ce paquet ne prouve le chargement et la communication qu'après un test réel sur ton PC.
+Désinstaller : onglet « Paramètres », « Désinstaller ». Supprimer ensuite le dossier du launcher.

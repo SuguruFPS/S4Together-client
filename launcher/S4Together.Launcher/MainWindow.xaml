@@ -1,0 +1,387 @@
+﻿<Window x:Class="S4Together.Launcher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="S4Together" Width="1040" Height="680" MinWidth="860" MinHeight="560"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource Bg}" FontFamily="Segoe UI" FontSize="13">
+  <Grid Background="{StaticResource Bg}">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="210"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!-- Navigation -->
+    <Border Grid.RowSpan="2" Background="{StaticResource Panel}" Padding="14,20">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="6,0,0,22">
+          <TextBlock Text="S4Together" FontSize="22" FontWeight="Bold"/>
+          <TextBlock x:Name="VersionText" Style="{StaticResource Muted}" FontSize="11"/>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom">
+          <TextBlock x:Name="NavStatus" Style="{StaticResource Muted}" FontSize="11" Margin="6,0"/>
+        </StackPanel>
+        <StackPanel x:Name="NavMenu">
+          <RadioButton x:Name="NavHome" Style="{StaticResource Nav}" Content="Accueil" IsChecked="True" Checked="Nav_Checked" Tag="PageHome"/>
+          <RadioButton Style="{StaticResource Nav}" Content="Serveur" Checked="Nav_Checked" Tag="PageServer"/>
+          <RadioButton x:Name="NavCharacters" Style="{StaticResource Nav}" Content="Personnages" Checked="Nav_Checked" Tag="PageSim" Visibility="Collapsed"/>
+          <RadioButton x:Name="NavCommunity" Style="{StaticResource Nav}" Content="Tchat et joueurs" Checked="Nav_Checked" Tag="PageCommunity" IsEnabled="False" Visibility="Collapsed"/>
+          <RadioButton x:Name="NavGame" Style="{StaticResource Nav}" Content="Paramètres" Checked="Nav_Checked" Tag="PageGame"/>
+          <RadioButton x:Name="NavDiagnostic" Style="{StaticResource Nav}" Content="Diagnostic" Checked="Nav_Checked" Tag="PageDiag" Visibility="Collapsed"/>
+          <RadioButton x:Name="NavAdmin" Style="{StaticResource Nav}" Content="Admin" Checked="Nav_Checked" Tag="PageAdmin" Visibility="Collapsed"/>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid Grid.Column="1" Margin="28,24,28,8">
+      <!-- Accueil -->
+      <ScrollViewer x:Name="PageHome" VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <TextBlock Style="{StaticResource H1}" Text="Prêt à jouer ensemble ?"/>
+          <UniformGrid Columns="2">
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,6,12">
+              <StackPanel><TextBlock Style="{StaticResource H2}" Text="Jeu"/><TextBlock x:Name="HomeGame" Style="{StaticResource Muted}"/></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardBorder}" Margin="6,0,0,12">
+              <StackPanel><TextBlock Style="{StaticResource H2}" Text="Mod S4Together"/><TextBlock x:Name="HomeMod" Style="{StaticResource Muted}"/></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,6,12">
+              <StackPanel><TextBlock Style="{StaticResource H2}" Text="Serveur"/><TextBlock x:Name="HomeServer" Style="{StaticResource Muted}"/></StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardBorder}" Margin="6,0,0,12">
+              <StackPanel><TextBlock Style="{StaticResource H2}" Text="Liaison avec le jeu"/><TextBlock x:Name="HomeBridge" Style="{StaticResource Muted}"/></StackPanel>
+            </Border>
+          </UniformGrid>
+          <Border x:Name="SeasonCard" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Visibility="Collapsed">
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="Saison du monde"/>
+              <TextBlock x:Name="SeasonText" Style="{StaticResource Muted}" TextWrapping="Wrap"/>
+              <StackPanel x:Name="SeasonChoices" Orientation="Horizontal" Margin="0,8,0,0" Visibility="Collapsed">
+                <Button Content="Printemps" Tag="spring" Click="ChooseSeason_Click"/>
+                <Button Content="Été" Tag="summer" Click="ChooseSeason_Click"/>
+                <Button Content="Automne" Tag="autumn" Click="ChooseSeason_Click"/>
+                <Button Content="Hiver" Tag="winter" Click="ChooseSeason_Click"/>
+                <Button Content="Laisser choisir un autre joueur" Click="AbandonSeason_Click"/>
+              </StackPanel>
+              <TextBlock x:Name="SeasonStatus" Margin="0,6,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <DockPanel>
+              <Button x:Name="PlayButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Jouer" FontSize="18" Padding="40,12" Click="Play_Click"/>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="PlayHint" FontSize="14"/>
+                <TextBlock Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,0"
+                           Text="« Jouer » vérifie le mod, prépare la liaison locale avec le jeu puis lance Les Sims 4 depuis EA app ou Steam."/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Serveur -->
+      <ScrollViewer x:Name="PageServer" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="1000" HorizontalAlignment="Left">
+          <TextBlock Style="{StaticResource H1}" Text="Serveurs"/>
+          <TextBlock Style="{StaticResource Muted}" Text="Tes serveurs enregistrés sur ce PC. Double-clique sur une fiche pour te connecter." Margin="0,0,0,10"/>
+          <ListBox x:Name="ServerDirectoryList" MinHeight="90" MaxHeight="260" MouseDoubleClick="Directory_DoubleClick" SelectionChanged="Directory_SelectionChanged" KeyDown="Directory_KeyDown">
+            <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="8,6">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding DisplayEndpoint}" FontSize="12"/>
+              <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
+            </StackPanel></DataTemplate></ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock x:Name="DirectoryEmpty" Style="{StaticResource Muted}" Text="Aucun serveur enregistré. Ajoute l'adresse de ton hébergeur ci-dessous." Margin="0,6"/>
+          <WrapPanel Margin="0,8,0,16">
+            <Button x:Name="DirectoryRefreshButton" Content="Actualiser les serveurs" Click="DirectoryRefresh_Click"/>
+            <Button Content="Favori ★" Click="DirectoryFavorite_Click"/>
+            <Button Content="Retirer la fiche" Click="DirectoryRemove_Click"/>
+          </WrapPanel>
+          <TextBlock Style="{StaticResource H2}" Text="Ajouter un serveur ou saisir son adresse"/>
+          <TextBlock Text="Nom du serveur (facultatif)" Margin="0,0,0,4"/>
+          <TextBox x:Name="ServerLabelBox" MaxLength="80" ToolTip="Nom de la fiche, par exemple Mon serveur" Margin="0,0,0,8"/>
+          <Border Style="{StaticResource CardBorder}">
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+              <TextBlock Text="Adresse" VerticalAlignment="Center"/>
+              <TextBox x:Name="HostBox" Grid.Column="1" Margin="0,4"/>
+              <TextBlock Grid.Row="1" Text="Port" VerticalAlignment="Center"/>
+              <TextBox x:Name="PortBox" Grid.Row="1" Grid.Column="1" Margin="0,4" Width="110" HorizontalAlignment="Left"/>
+              <TextBlock Grid.Row="2" Text="Nom de joueur" VerticalAlignment="Center"/>
+              <TextBox x:Name="NameBox" Grid.Row="2" Grid.Column="1" Margin="0,4" MaxLength="40"/>
+              <TextBlock Grid.Row="3" Text="Mot de passe" VerticalAlignment="Center"/>
+              <PasswordBox x:Name="PasswordBox" Grid.Row="3" Grid.Column="1" Margin="0,4" MaxLength="128"/>
+              <CheckBox x:Name="RememberBox" Grid.Row="4" Grid.Column="1" Content="Mémoriser le mot de passe (chiffré pour ce compte Windows)"/>
+            </Grid>
+          </Border>
+          <TextBlock Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,12"
+                     Text="Saisis l'IP ou le nom du serveur et son port. La connexion Internet est chiffrée automatiquement."/>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+            <Button Content="Enregistrer cette adresse" Click="DirectorySave_Click"/>
+            <Button Content="Tester le serveur" Click="Test_Click"/>
+            <Button x:Name="ConnectButton" Style="{StaticResource Primary}" Content="Se connecter" Click="Connect_Click"/>
+          </StackPanel>
+          <TextBlock x:Name="ServerStatus" FontSize="14"/>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Le bouton reste visible : seule la collection et les détails défilent. -->
+      <Grid x:Name="PageSim" Visibility="Collapsed">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,18">
+          <TextBlock Style="{StaticResource H1}" Text="Personnages" Margin="0,0,0,6"/>
+          <TextBlock Style="{StaticResource Muted}" Text="Choisis ta sauvegarde ou crée un nouveau personnage."/>
+        </StackPanel>
+        <Grid Grid.Row="1">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="190"/><ColumnDefinition Width="260"/></Grid.ColumnDefinitions>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,16,0">
+            <StackPanel>
+              <TextBlock Text="Rechercher un personnage" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,5"/>
+              <TextBox x:Name="CharacterSearch" TextChanged="CharacterSearch_Changed" MaxLength="80" Margin="0,0,12,14" AutomationProperties.Name="Rechercher un personnage"/>
+              <TextBlock Text="Parties solo · importer un Sim" Style="{StaticResource H2}"/>
+              <TextBlock Text="Tes sauvegardes solo restent sur ton PC." Style="{StaticResource Muted}" Margin="0,0,0,8"/>
+              <ListBox x:Name="LocalSimList" Style="{StaticResource CharacterCards}" SelectionChanged="LocalSim_SelectionChanged" SelectionMode="Single" AutomationProperties.Name="Choisir ma sauvegarde">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel>
+                      <Border Height="124" Background="#141920" CornerRadius="7" Margin="0,0,0,10">
+                        <Grid ClipToBounds="True">
+                          <StackPanel x:Name="LocalPortraitPlaceholder" VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="Image indisponible" Style="{StaticResource Muted}" FontSize="11"/>
+                          </StackPanel>
+                          <Image x:Name="CardPortrait" Source="{Binding Portrait}" Stretch="UniformToFill" AutomationProperties.Name="Image du foyer"/>
+                          <TextBlock x:Name="NewCardPlus" Text="+" FontSize="62" Foreground="{StaticResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                        </Grid>
+                      </Border>
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" MaxHeight="40"/>
+                      <TextBlock Text="{Binding Household}" Style="{StaticResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis" MaxHeight="36" Margin="0,3,0,8"/>
+                      <TextBlock x:Name="LocalCardSource" Text="Sauvegarde locale" Foreground="{StaticResource Accent}" FontSize="11"/>
+                    </StackPanel>
+                    <DataTemplate.Triggers>
+                      <DataTrigger Binding="{Binding IsNew}" Value="True">
+                        <Setter TargetName="LocalPortraitPlaceholder" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="CardPortrait" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="NewCardPlus" Property="Visibility" Value="Visible"/>
+                        <Setter TargetName="LocalCardSource" Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                    </DataTemplate.Triggers>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <TextBlock Text="Multijoueur · personnages de ce serveur" Style="{StaticResource H2}" Margin="0,18,0,8"/>
+              <Button x:Name="NewMultiplayerCharacterButton" Content="＋ Nouveau personnage multijoueur" Click="NewCharacter_Click" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+              <TextBlock x:Name="CharacterEmpty" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,12,10" Text="Connecte-toi au serveur pour charger tes personnages."/>
+              <ListBox x:Name="CharacterList" Style="{StaticResource CharacterCards}" SelectionChanged="ServerCharacter_SelectionChanged" SelectionMode="Single" AutomationProperties.Name="Mes personnages du serveur">
+                <ListBox.ItemTemplate>
+                  <DataTemplate><StackPanel><Border Height="124" Background="#141920" CornerRadius="7" Margin="0,0,0,10"><Grid><TextBlock Text="Image du personnage indisponible" Style="{StaticResource Muted}" FontSize="11" TextAlignment="Center" VerticalAlignment="Center"/><Image Source="{Binding Portrait}" Stretch="UniformToFill"/></Grid></Border><TextBlock Text="{Binding Label}" FontWeight="SemiBold"/></StackPanel></DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <Expander Header="Actualiser ou choisir le dossier" Foreground="{StaticResource MutedBrush}" Margin="0,8,12,12">
+                <StackPanel Margin="0,10,0,0">
+                  <WrapPanel><Button x:Name="ScanLocalSimsButton" Content="Redétecter" Click="ScanLocalSims_Click" Margin="0,0,8,8"/><Button x:Name="RefreshCharactersButton" Content="Actualiser le serveur" Click="RefreshCharacters_Click" IsEnabled="False" Margin="0,0,8,8"/></WrapPanel>
+                  <Button Content="Choisir le dossier Les Sims 4…" Click="BrowseLocalSims_Click" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                  <TextBlock x:Name="LocalSimStatus" Style="{StaticResource Muted}" FontSize="11" Text="Recherche dans tes parties enregistrées et Ma bibliothèque."/>
+                </StackPanel>
+              </Expander>
+              <Expander x:Name="LegacyHouseholds" Header="Foyers du serveur (avancé)" Visibility="Collapsed" Foreground="{StaticResource MutedBrush}" Margin="0,0,12,12">
+                <StackPanel>
+                  <ListBox x:Name="HouseholdList" DisplayMemberPath="Label" MinHeight="60" MaxHeight="160" Margin="0,6,0,8"/>
+                  <TextBox x:Name="HouseholdName" MaxLength="40" Margin="0,0,0,8" AutomationProperties.Name="Nom du foyer"/>
+                  <WrapPanel><Button Content="Créer un foyer" Click="CreateHousehold_Click" Margin="0,0,8,8"/><Button Content="Choisir ce foyer" Click="SelectHousehold_Click" Margin="0,0,8,8"/></WrapPanel>
+                </StackPanel>
+              </Expander>
+            </StackPanel>
+          </ScrollViewer>
+          <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Border x:Name="CreateCharacterCard" Style="{StaticResource CardBorder}" Padding="14" VerticalAlignment="Top">
+              <StackPanel>
+                <TextBlock Style="{StaticResource H2}" Text="Ton choix"/>
+                <Border Background="#141920" CornerRadius="8" Padding="8" Margin="0,0,0,12">
+                  <StackPanel>
+                    <Image x:Name="LocalSimPortrait" Height="170" Stretch="Uniform" Visibility="Collapsed" AutomationProperties.Name="Image du foyer sélectionné"/>
+                    <TextBlock x:Name="LocalSimPortraitStatus" Style="{StaticResource Muted}" FontSize="12" Text="Sélectionne une carte pour continuer."/>
+                    <TextBlock x:Name="LocalSimSaveDate" Style="{StaticResource Muted}" FontSize="11" Margin="0,6,0,0"/>
+                  </StackPanel>
+                </Border>
+                <TextBlock Text="Nom du personnage" Margin="0,0,0,5"/>
+                <TextBox x:Name="CharacterName" TextChanged="CharacterName_Changed" MaxLength="40" Margin="0,0,0,12" AutomationProperties.Name="Nom du personnage"/>
+                <TextBlock Text="La maison et le terrain se choisissent dans Les Sims 4." Style="{StaticResource Muted}" FontSize="12"/>
+                <Border x:Name="GameStartGuide" Background="#141920" CornerRadius="8" Padding="12" Margin="0,14,0,0" Visibility="Collapsed">
+                  <StackPanel>
+                    <TextBlock Text="Dans le menu du jeu" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="GameStartAction" Foreground="{StaticResource Accent}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,8,0,6"/>
+                    <TextBlock x:Name="GameStartDetails" Style="{StaticResource Muted}" FontSize="12"/>
+                  </StackPanel>
+                </Border>
+                <CheckBox x:Name="KeepMoney" Visibility="Collapsed" Margin="0,14,0,0" Checked="ImportOptions_Changed" Unchecked="ImportOptions_Changed"><TextBlock Text="Garder l'argent de mon foyer solo" TextWrapping="Wrap"/></CheckBox>
+                <TextBlock x:Name="ImportMoneyHint" Visibility="Collapsed" Style="{StaticResource Muted}" FontSize="11" Margin="0,6,0,0"/>
+                <Button x:Name="DeleteCharacterButton" Content="Supprimer ce personnage du serveur…" Click="DeleteCharacter_Click" Visibility="Collapsed" ToolTip="Ferme le jeu avant de supprimer un personnage." Margin="0,16,0,0"/>
+                <Expander x:Name="CreationOptions" Header="Options avancées" Visibility="Collapsed" Foreground="{StaticResource MutedBrush}">
+                  <StackPanel Margin="0,10,0,0">
+                    <RadioButton x:Name="OriginCas" GroupName="Origin" IsChecked="True" Visibility="Collapsed" Checked="Origin_Changed"/>
+                    <RadioButton x:Name="OriginImport" GroupName="Origin" Visibility="Collapsed" Checked="Origin_Changed"/>
+                    <CheckBox x:Name="KeepHouse" IsEnabled="False" IsChecked="False" Margin="0,0,0,10"><TextBlock Text="Garder la maison (import)"/></CheckBox>
+                    <TextBlock Text="Terrain du serveur (facultatif)" FontSize="12" Margin="0,0,0,5"/>
+                    <ComboBox x:Name="LotChoice" DisplayMemberPath="Label" AutomationProperties.Name="Terrain"/>
+                  </StackPanel>
+                </Expander>
+              </StackPanel>
+            </Border>
+          </ScrollViewer>
+        </Grid>
+        <Border Grid.Row="2" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,14,0,6" Margin="0,14,0,0">
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+              <TextBlock x:Name="CharacterHint" Style="{StaticResource Muted}" FontSize="12"/>
+              <TextBlock x:Name="SimStatus" TextWrapping="Wrap" Margin="0,5,0,0"/>
+            </StackPanel>
+            <Button x:Name="JoinButton" Grid.Column="1" Style="{StaticResource Primary}" Content="Rejoindre" Click="SelectCharacter_Click" IsEnabled="False" MinWidth="150" Padding="24,12" FontSize="16" Margin="0" VerticalAlignment="Bottom"/>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- Communauté -->
+      <Grid x:Name="PageCommunity" Visibility="Collapsed">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="240"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Grid.ColumnSpan="2">
+          <TextBlock Style="{StaticResource H1}" Text="Tchat et joueurs"/>
+          <TextBlock x:Name="ChatStatus" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+        </StackPanel>
+        <ListBox x:Name="ChatList" Grid.Row="1" Margin="0,0,12,8"/>
+        <DockPanel x:Name="ChatComposer" Grid.Row="2" Margin="0,0,12,0" IsEnabled="False">
+          <Button DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Envoyer" Click="SendChat_Click" Margin="8,0,0,0"/>
+          <TextBox x:Name="ChatBox" MaxLength="1000" KeyDown="ChatBox_KeyDown"/>
+        </DockPanel>
+        <StackPanel Grid.Row="1" Grid.Column="1" Grid.RowSpan="2">
+          <TextBlock Style="{StaticResource H2}" Text="En ligne"/>
+          <ListBox x:Name="PlayerList" Height="170" DisplayMemberPath="Label"/>
+          <Button Content="Ajouter aux amis" Click="AddFriend_Click" Margin="0,6,0,14" HorizontalAlignment="Left"/>
+          <TextBlock Style="{StaticResource H2}" Text="Amis"/>
+          <ListBox x:Name="FriendList" Height="120"/>
+          <Button Content="Retirer" Click="RemoveFriend_Click" Margin="0,6,0,10" HorizontalAlignment="Left"/>
+          <TextBlock Style="{StaticResource Muted}" FontSize="11"
+                     Text="Les invitations et la liste d'amis partagée arrivent avec le serveur (cartes en cours) ; la liste d'amis est locale pour l'instant."/>
+        </StackPanel>
+      </Grid>
+
+      <!-- Mod et jeu -->
+      <ScrollViewer x:Name="PageGame" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="720" HorizontalAlignment="Left">
+          <TextBlock Style="{StaticResource H1}" Text="Paramètres"/>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="Les Sims 4"/>
+              <ComboBox x:Name="GameCombo" DisplayMemberPath="Label" SelectionChanged="GameCombo_SelectionChanged" Margin="0,0,0,8"/>
+              <StackPanel Orientation="Horizontal">
+                <Button Content="Choisir le dossier du jeu…" Click="BrowseGame_Click"/>
+                <Button Content="Redétecter" Click="Redetect_Click"/>
+              </StackPanel>
+              <TextBlock x:Name="PacksText" Style="{StaticResource Muted}" Margin="0,8,0,0"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="Dossier Mods du profil"/>
+              <DockPanel Margin="0,0,0,8">
+                <Button DockPanel.Dock="Right" Content="Parcourir…" Click="BrowseMods_Click" Margin="8,0,0,0"/>
+                <ComboBox x:Name="ModsCombo" IsEditable="True" LostFocus="ModsCombo_Changed" SelectionChanged="ModsCombo_Changed"/>
+              </DockPanel>
+              <TextBlock x:Name="ModState" Margin="0,0,0,4"/>
+              <TextBlock x:Name="ModOptions" Style="{StaticResource Muted}" Margin="0,0,0,10"/>
+              <WrapPanel>
+                <Button x:Name="InstallButton" Style="{StaticResource Primary}" Content="Installer" Click="Install_Click" Margin="0,0,8,6"/>
+                <Button x:Name="EnableScriptsButton" Content="Activer les mods de script" Click="EnableScripts_Click" Margin="0,0,8,6"/>
+                <Button x:Name="UninstallButton" Content="Désinstaller" Click="Uninstall_Click" Margin="0,0,8,6"/>
+              </WrapPanel>
+              <TextBlock Style="{StaticResource Muted}" FontSize="11" Margin="0,6,0,0"
+                         Text="Chaque action demande ton accord. Les anciennes copies et Options.ini sont sauvegardés dans %LOCALAPPDATA%\S4Together\launcher\backups. Aucun autre mod ni sauvegarde de partie n'est touché. Jeu fermé obligatoire."/>
+            </StackPanel>
+          </Border>
+          <CheckBox x:Name="TrayBox" Content="Réduire dans la zone de notification pendant le jeu" Click="TrayBox_Click"/>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Diagnostic -->
+      <Grid x:Name="PageDiag" Visibility="Collapsed">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Style="{StaticResource H1}" Text="Diagnostic"/>
+        <ListBox x:Name="DiagList" Grid.Row="1" Margin="0,0,0,10">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" Margin="2,4">
+                <TextBlock Text="{Binding Mark}" Foreground="{Binding Color}" FontWeight="Bold" Width="26"/>
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Width="190"/>
+                <TextBlock Text="{Binding Detail}" Width="520"/>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel Grid.Row="2" Orientation="Horizontal">
+          <Button Style="{StaticResource Primary}" Content="Lancer le diagnostic" Click="RunDiag_Click"/>
+          <Button Content="Exporter (sans secret)…" Click="ExportDiag_Click"/>
+        </StackPanel>
+      </Grid>
+
+      <!-- Admin : visible seulement si le serveur accorde un rôle d'administration -->
+      <StackPanel x:Name="PageAdmin" Visibility="Collapsed" MaxWidth="640" HorizontalAlignment="Left">
+        <TextBlock Style="{StaticResource H1}" Text="Admin"/>
+        <TextBlock x:Name="AdminText" Style="{StaticResource Muted}" Margin="0,0,0,12"/>
+        <Border Style="{StaticResource CardBorder}">
+          <StackPanel>
+            <TextBlock Style="{StaticResource H2}" Text="Joueurs connectés"/>
+            <ListBox x:Name="AdminPlayers" Height="200" DisplayMemberPath="Label" Margin="0,0,0,10" AutomationProperties.Name="Joueurs"
+                     SelectionChanged="AdminPlayers_Changed"/>
+            <StackPanel x:Name="AdminRolesRow" Orientation="Horizontal">
+              <ComboBox x:Name="AdminRole" Width="160" Margin="0,0,8,0" DisplayMemberPath="Label" AutomationProperties.Name="Rôle"/>
+              <Button Style="{StaticResource Primary}" Content="Attribuer le rôle" Click="AssignRole_Click"/>
+              <Button Content="Retirer le rôle" Click="RevokeRole_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="AdminStatus" Margin="0,10,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border x:Name="AdminSanctionsCard" Style="{StaticResource CardBorder}">
+          <StackPanel>
+            <TextBlock Style="{StaticResource H2}" Text="Sanctions"/>
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
+                       Text="S'applique au joueur choisi ci-dessus. Sans joueur choisi, la liste montre toutes les sanctions, y compris celles des joueurs hors ligne."/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+              <ComboBox x:Name="SanctionKind" Width="220" Margin="0,0,8,0" DisplayMemberPath="Label" SelectionChanged="SanctionKind_Changed" AutomationProperties.Name="Type de sanction"/>
+              <ComboBox x:Name="SanctionDuration" Width="140" DisplayMemberPath="Label" AutomationProperties.Name="Durée"/>
+            </StackPanel>
+            <TextBlock Text="Motif (obligatoire, enregistré dans l'audit du serveur)" Margin="0,0,0,4"/>
+            <TextBox x:Name="SanctionReason" MaxLength="1000" Margin="0,0,0,8" AutomationProperties.Name="Motif"/>
+            <StackPanel Orientation="Horizontal">
+              <Button Style="{StaticResource Primary}" Content="Appliquer la sanction" Click="ApplySanction_Click"/>
+              <Button Content="Lever la sanction choisie" Click="RevokeSanction_Click"/>
+              <Button Content="Toutes les sanctions" Click="AllSanctions_Click"/>
+            </StackPanel>
+            <ListBox x:Name="SanctionList" Height="160" DisplayMemberPath="Label" Margin="0,10,0,0" AutomationProperties.Name="Sanctions"/>
+            <TextBlock x:Name="SanctionStatus" Margin="0,10,0,0" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+        <Border x:Name="AdminSeasonCard" Style="{StaticResource CardBorder}" Visibility="Collapsed">
+          <StackPanel>
+            <TextBlock Style="{StaticResource H2}" Text="Saison du monde"/>
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
+                       Text="Réinitialiser efface la saison choisie : un joueur présent avec Saisons pourra en choisir une nouvelle. Réservé au propriétaire."/>
+            <TextBlock Text="Motif (obligatoire, enregistré dans l'audit du serveur)" Margin="0,0,0,4"/>
+            <TextBox x:Name="SeasonResetReason" MaxLength="500" Margin="0,0,0,8" AutomationProperties.Name="Motif de réinitialisation"/>
+            <Button HorizontalAlignment="Left" Content="Réinitialiser la saison" Click="ResetSeason_Click"/>
+            <TextBlock x:Name="SeasonResetStatus" Margin="0,10,0,0" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+        <TextBlock Style="{StaticResource Muted}" FontSize="11"
+                   Text="Le serveur vérifie chaque action : seuls les joueurs de rôle inférieur au tien sont concernés. Sauvegardes et maintenance restent dans SuguPanel."/>
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Column="1" Grid.Row="1" Background="{StaticResource Panel}" Padding="28,8">
+      <TextBlock x:Name="StatusBar" Style="{StaticResource Muted}" FontSize="12"/>
+    </Border>
+  </Grid>
+</Window>
