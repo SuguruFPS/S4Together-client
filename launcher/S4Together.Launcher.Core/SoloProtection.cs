@@ -19,7 +19,24 @@ public static class SoloProtection
             if (households.Count > MaxIds || sims.Count > MaxIds) throw TooMany();
         }
         if (households.Count > MaxIds || sims.Count > MaxIds) throw TooMany();
-        return new(characterId, households.Order(StringComparer.Ordinal).ToArray(), sims.Order(StringComparer.Ordinal).ToArray());
+        return new(characterId, households.Order(StringComparer.Ordinal).ToArray(), sims.Order(StringComparer.Ordinal).ToArray(), previous?.AllowedSaveSlotId);
     }
+
+    /// <summary>Sauvegardes locales qu'un personnage en attente peut reprendre : une par fichier, la plus récente d'abord.</summary>
+    public static IReadOnlyList<SaveChoice> Saves(IEnumerable<LocalSim> sims) => sims
+        .Where(s => s.Source == "Partie enregistrée" && IsSlotId(s.SaveId))
+        .GroupBy(s => s.FilePath, StringComparer.OrdinalIgnoreCase)
+        .Select(g => new SaveChoice(g.First().SaveId, g.First().SaveName, g.Key, g.Max(s => s.SavedAtUtc),
+            g.Select(s => s.Household).Where(h => h.Length > 0).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray()))
+        .OrderByDescending(c => c.SavedAtUtc).ToArray();
+
+    /// <summary>Même format que le mod (solo_guard._NATIVE) : décimal sans zéro initial, 1 à 20 chiffres.</summary>
+    public static bool IsSlotId(string value) =>
+        value.Length is > 0 and <= 20 && value[0] != '0' && value.All(char.IsAsciiDigit);
     static InvalidOperationException TooMany() => new("Trop de Sims pour vérifier la protection solo. Choisis le dossier du profil utilisé dans Paramètres.");
+}
+
+public sealed record SaveChoice(string SlotId, string Name, string FilePath, DateTime SavedAtUtc, IReadOnlyList<string> Households)
+{
+    public string Label => $"{Name} — {string.Join(", ", Households)} — {SavedAtUtc.ToLocalTime():dd/MM/yyyy HH:mm}";
 }

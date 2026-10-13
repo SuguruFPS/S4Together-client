@@ -1152,6 +1152,20 @@ public partial class MainWindow : Window
                 if (scan.Problems.Count > 0) { Failure("Impossible de vérifier la protection de tes sauvegardes : " + scan.Problems[0]); return; }
                 var known = scan.Sims.Where(c => roster.BoundFor(c) is null);
                 guard = SoloProtection.Merge(selectedCharacter.Id, guard, known);
+                if (!selectedCharacter.Bound)
+                {
+                    var saves = SoloProtection.Saves(scan.Sims);
+                    if (saves.Count > 0)
+                    {
+                        var answer = SaveChoiceDialog.Ask(this, selectedCharacter.Name, saves, guard.AllowedSaveSlotId);
+                        if (answer is null) { Status("Choix annulé : rien n'a été modifié."); return; }
+                        if (!ReferenceEquals(current, link) || roster?.Selected?.Id != selectedCharacter.Id) { Failure("La connexion ou le personnage a changé. Choisis ton personnage puis réessaie."); return; }
+                        guard = guard with { AllowedSaveSlotId = answer.Save?.SlotId };
+                        if (answer.Save is not null)
+                            intent = intent with { Guidance = $"Dans le jeu, « Charger la partie » puis « {answer.Save.Name} ». Ne prends pas une autre sauvegarde : elle resterait protégée." };
+                        CharacterHint.Text = intent.Guidance;
+                    }
+                }
                 settings.SoloGuards[guardKey] = guard;
                 SaveSettings();
             }

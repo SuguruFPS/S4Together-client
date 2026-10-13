@@ -114,7 +114,8 @@ public sealed class LauncherSettings
 }
 
 /// <summary>Configuration lue par le mod (même format que client/sims4_mod/s4t/config.py) : il se connecte au pont local.</summary>
-public sealed record SoloGuard(string CharacterId, IReadOnlyList<string> BlockedHouseholdIds, IReadOnlyList<string> BlockedSimIds);
+/// <remarks>AllowedSaveSlotId : slot_id de la sauvegarde que le joueur a choisie pour ce personnage ; seule elle échappe aux listes.</remarks>
+public sealed record SoloGuard(string CharacterId, IReadOnlyList<string> BlockedHouseholdIds, IReadOnlyList<string> BlockedSimIds, string? AllowedSaveSlotId = null);
 
 public static class ModBridgeConfig
 {
@@ -138,7 +139,12 @@ public static class ModBridgeConfig
             ["launcher_bridge"] = true,
         };
         if (intent is not null) config["play_intent"] = new Dictionary<string, string> { ["mode"] = intent.Mode, ["id"] = intent.Id };
-        if (soloGuard is not null) config["solo_guard"] = new { characterId = soloGuard.CharacterId, blockedHouseholdIds = soloGuard.BlockedHouseholdIds, blockedSimIds = soloGuard.BlockedSimIds };
+        if (soloGuard is not null)
+        {
+            var guard = new Dictionary<string, object> { ["characterId"] = soloGuard.CharacterId, ["blockedHouseholdIds"] = soloGuard.BlockedHouseholdIds, ["blockedSimIds"] = soloGuard.BlockedSimIds };
+            if (soloGuard.AllowedSaveSlotId is not null) guard["allowedSaveSlotId"] = soloGuard.AllowedSaveSlotId;
+            config["solo_guard"] = guard;
+        }
         WriteAtomic(Path.Combine(dir, "config.json"), JsonSerializer.Serialize(config));
         WriteAtomic(Path.Combine(dir, IdentityFileName(endpoint)), JsonSerializer.Serialize(new { playerId, token = bridgeToken }));
     }

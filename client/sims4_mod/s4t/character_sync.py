@@ -49,8 +49,16 @@ def _native(value):
     return str(value) if type(value) is int and 0 < value < 10 ** 20 else None
 
 
+def _save_slot_id(services):
+    """slot_id de la sauvegarde chargée (SaveSlotData champ 1, via PersistenceService.get_save_slot_proto_buff), ou None."""
+    try:
+        return _native(getattr(services.get_persistence_service().get_save_slot_proto_buff(), 'slot_id', None))
+    except Exception:
+        return None
+
+
 def game_household():
-    """Observation du foyer actif : {householdId, simIds, funds, homeLotId, gameWorld} ou None."""
+    """Observation du foyer actif : {householdId, simIds, funds, homeLotId, gameWorld, saveSlotId} ou None."""
     import services
     household = services.active_household()
     if household is None:
@@ -61,7 +69,8 @@ def game_household():
         return None
     world = household.get_home_world_id()
     return {'householdId': household_id, 'simIds': sim_ids[:8], 'funds': household.funds.money,
-            'homeLotId': _native(household.home_zone_id), 'gameWorld': _native(world)}
+            'homeLotId': _native(household.home_zone_id), 'gameWorld': _native(world),
+            'saveSlotId': _save_slot_id(services)}
 
 
 def game_set_funds(target):

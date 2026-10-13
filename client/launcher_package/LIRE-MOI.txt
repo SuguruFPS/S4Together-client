@@ -1,4 +1,4 @@
-S4Together 0.1.24-game-test — mod de test, launcher 0.1.24 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.25-game-test — mod de test, launcher 0.1.25 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
 
 MISE À JOUR AUTOMATIQUE
 À chaque démarrage, le launcher vérifie la dernière version publiée sur
@@ -42,6 +42,9 @@ DÉMARRER
    Ensuite choisis ton personnage dans la section Multijoueur du launcher et reprends cette partie.
    Si « Reprendre » propose ton foyer solo, utilise « Charger la partie » et le nom de ta sauvegarde multijoueur.
    Le launcher reconnaît les sauvegardes liées par les identifiants du foyer et des Sims, jamais leurs noms seuls.
+   Partie déjà commencée pour ce personnage mais message « pas encore lié » : clique « Rejoindre », choisis cette
+   sauvegarde dans la liste, puis charge-la dans le jeu. Seule elle est autorisée ; les relations du foyer avec les
+   PNJ sont effacées à la liaison. Ne choisis jamais une vraie partie solo.
    Une fois le foyer chargé en mode Vie, le mod se connecte seul au launcher.
    Le tchat et la liste des joueurs sont accessibles après connexion dans « Tchat et joueurs ».
 6. Saison du monde (pack Saisons requis) : le premier joueur connecté choisit la saison de départ dans l'Accueil

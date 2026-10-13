@@ -10,6 +10,10 @@ EXACTEMENT sa liaison (même gameHouseholdId, même ensemble de simIds). Cela co
 que le relevé du launcher aurait rangée parmi les parties solo. Aucune exception pour une première liaison
 (`pending_game`), un foyer partiel, un autre foyer, une liaison mal formée, ni pour une garde invalide ou
 écrite pour un autre personnage.
+
+Sauvegarde choisie : `allowedSaveSlotId` (facultatif, décimal) est le slot_id d'une sauvegarde que le joueur a
+explicitement choisie dans le launcher pour ce personnage. Seule cette sauvegarde échappe aux listes ; une copie
+« Enregistrer sous » a un autre slot_id et reste protégée. slot_id illisible dans le jeu : rien n'est autorisé.
 """
 import re
 
@@ -38,9 +42,12 @@ def parse(settings):
     character_id = value.get('characterId')
     households = _ids(value.get('blockedHouseholdIds'))
     sims = _ids(value.get('blockedSimIds'))
+    allowed = value.get('allowedSaveSlotId')
     if not isinstance(character_id, str) or not _UUID.match(character_id) or households is None or sims is None:
         return INVALID
-    return {'characterId': character_id, 'households': households, 'sims': sims}
+    if allowed is not None and (not isinstance(allowed, str) or not _NATIVE.match(allowed)):
+        return INVALID
+    return {'characterId': character_id, 'households': households, 'sims': sims, 'allowedSave': allowed}
 
 
 def load(store):
@@ -59,7 +66,7 @@ def cause(guard, character, observed):
         return 'guard_invalid'
     if guard['characterId'] != character.get('characterId'):
         return 'guard_other_character'
-    if exact_resume(character, observed):
+    if exact_resume(character, observed) or chosen_save(guard, observed):
         return None
     binding = character.get('binding')
     if isinstance(binding, dict) and _hit(guard, binding.get('gameHouseholdId'), binding.get('simIds')):
@@ -97,6 +104,12 @@ def exact_resume(character, observed):
     return bound is not None and bound == seen
 
 
+def chosen_save(guard, observed):
+    """Vrai si la partie chargée est la sauvegarde choisie par le joueur pour ce personnage."""
+    allowed = guard.get('allowedSave') if isinstance(guard, dict) else None
+    return allowed is not None and isinstance(observed, dict) and observed.get('saveSlotId') == allowed
+
+
 def _hit(guard, household_id, sim_ids):
     if isinstance(household_id, str) and household_id in guard['households']:
         return True
@@ -106,7 +119,8 @@ def _hit(guard, household_id, sim_ids):
 def summary(guard):
     """Compteurs pour le diagnostic : jamais d'identifiant natif."""
     if guard is None:
-        return {'guard': 'absent', 'blockedHouseholds': 0, 'blockedSims': 0}
+        return {'guard': 'absent', 'blockedHouseholds': 0, 'blockedSims': 0, 'chosenSave': False}
     if guard == INVALID:
-        return {'guard': 'invalid', 'blockedHouseholds': 0, 'blockedSims': 0}
-    return {'guard': 'active', 'blockedHouseholds': len(guard['households']), 'blockedSims': len(guard['sims'])}
+        return {'guard': 'invalid', 'blockedHouseholds': 0, 'blockedSims': 0, 'chosenSave': False}
+    return {'guard': 'active', 'blockedHouseholds': len(guard['households']), 'blockedSims': len(guard['sims']),
+            'chosenSave': guard['allowedSave'] is not None}
