@@ -24,8 +24,9 @@ MIN_LEVEL, MAX_LEVEL = -8, 16  # Bornes serveur de l'étage.
 _NATIVE = re.compile(r'^[0-9]{1,20}$')
 _CODE = re.compile(r'^[a-z_]{1,40}$')
 # Refus passagers : nouvel essai espacé de RETRY_TICKS, jamais à chaque seconde.
-_TRANSIENT = ('storage_unavailable', 'request_limit', 'revision_conflict', 'error', 'ack_timeout')
+_TRANSIENT = ('storage_unavailable', 'request_limit', 'revision_conflict', 'error', 'ack_timeout', 'home_not_registered')
 _ALERTS = {
+    'lot_taken': 'Cette maison est déjà réservée par un autre foyer du serveur. Choisis une maison libre dans le jeu.',
     'members_changed': 'Le foyer a changé depuis la liaison du personnage (naissance, emménagement, départ). '
                        'Présence en ligne suspendue : une nouvelle liaison est nécessaire.',
     'binding_mismatch': 'Le serveur ne reconnaît pas ce foyer pour ce personnage. Présence en ligne suspendue.',
@@ -175,7 +176,7 @@ class PresenceSync:
             return None
         sims = identity.get('simIds')
         return (identity.get('saveId'), identity.get('nativeHouseholdId'), identity.get('activeSimId'),
-                tuple(sims) if isinstance(sims, list) else None, identity.get('worldId'), identity.get('lotId'))
+                tuple(sims) if isinstance(sims, list) else None, identity.get('worldId'), identity.get('lotId'), identity.get('homeLotId'))
 
     def _check(self, identity, character):
         """Raison de ne pas déclarer la présence, ou None. Aucune identité n'est complétée ni devinée."""
@@ -188,6 +189,8 @@ class PresenceSync:
                 or not all(_native(identity.get(name)) for name in ('nativeHouseholdId', 'activeSimId', 'worldId', 'lotId'))
                 or not isinstance(sims, list) or not 1 <= len(sims) <= MAX_POSES or len(set(sims)) != len(sims)
                 or not all(_native(sim) for sim in sims)):
+            return 'native_ids_unavailable'
+        if identity.get('homeLotId') is not None and not _native(identity['homeLotId']):
             return 'native_ids_unavailable'
         binding = character.get('binding') if isinstance(character, dict) else None
         if not isinstance(binding, dict) or binding.get('gameHouseholdId') != identity['nativeHouseholdId']:
@@ -204,6 +207,8 @@ class PresenceSync:
         first = self.state != 'blocked' or (reason, key) != (self.reason, self.blocked_key)
         self.state, self.reason, self.blocked_key = 'blocked', reason, key
         self.retry_in = RETRY_TICKS if retry else None
+        if retry and reason == 'home_not_registered':
+            self.retry_in = 2  # La réservation autonome peut être encore en vol au premier join.
         if not first:
             return
         # Une ligne par transition ; les identités natives ne sont jamais écrites dans le journal.
@@ -224,6 +229,8 @@ class PresenceSync:
         payload = {'saveId': identity['saveId'], 'nativeHouseholdId': identity['nativeHouseholdId'],
                    'activeSimId': identity['activeSimId'], 'simIds': list(identity['simIds']),
                    'worldId': identity['worldId'], 'lotId': identity['lotId']}
+        if 'homeLotId' in identity:
+            payload['homeLotId'] = identity['homeLotId']
         self._send(manager, 'game.join', payload)
         self.pending_events = []
         self.pending_overflow = False

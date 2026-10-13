@@ -55,12 +55,21 @@ def auto_link():
         interactions = InteractionObserver(GameInteractions(
             clones=lambda: validated_clones(households.ghosts, appearance.remote),
             remote_sims=lambda: validated_remote_sims(households.ghosts, appearance.remote, motion.mapping)))
+        def terrain_factory():
+            from .terrain_adapter import game_reader, game_events
+            from .terrain_sync import TerrainSync
+            from .terrain_apply import game_applier
+            reader = game_reader()
+            applier = game_applier(reader)
+            sync = TerrainSync(reader.locate, reader.read, applier.apply)
+            return sync, game_events(sync.mark_dirty)
         _auto = AutoLink(runtime, lambda: ConfigStore().settings(), play_intent=PlayIntentRunner(ConfigStore()),
                          season_sync=SeasonSync(ConfigStore()), character_sync=CharacterSync(ConfigStore()),
                          presence_sync=presence, home_sync=HomeLotSync(),
                          appearance_sync=appearance, remote_households=households,
                          remote_motion=motion, interaction_observer=interactions,
-                         interaction_publisher=InteractionPublisher(peer_streams=lambda: dict(motion.streams)))
+                         interaction_publisher=InteractionPublisher(peer_streams=lambda: dict(motion.streams)),
+                         terrain_factory=terrain_factory)
     return _auto
 
 
@@ -94,7 +103,7 @@ def execute(action, *args):
             value['homes'] = home.status() if home is not None else {'state': 'not_started'}
             for key, name in (('appearance', 'appearance_sync'), ('remoteHouseholds', 'remote_households'),
                               ('remoteMotion', 'remote_motion'), ('interactions', 'interaction_observer'),
-                              ('interactionPublisher', 'interaction_publisher')):
+                              ('interactionPublisher', 'interaction_publisher'), ('terrain', 'terrain_sync')):
                 sync = getattr(_auto, name, None)
                 value[key] = sync.status() if sync is not None else {'state': 'not_started'}
             character = getattr(_auto, 'character_sync', None)
@@ -171,6 +180,9 @@ def execute(action, *args):
                 'packAvailable': current is not None, 'connection': manager.status()}
     if action == 'character':
         return _character_status(manager)
+    if action == 'terrain':
+        sync = getattr(_auto, 'terrain_sync', None)
+        return {'terrain': sync.status() if sync is not None else {'state': 'not_started'}, 'connection': manager.status()}
     if action == 'retry':
         return {'requestId': manager.retry(args[0])}
     raise ValueError('Commande inconnue')
@@ -294,6 +306,10 @@ else:
     @game_commands.Command('s4t.interactions', command_type=game_commands.CommandType.Live)
     def interactions(_connection=None):
         _output('interactions', _connection)
+
+    @game_commands.Command('s4t.terrain', command_type=game_commands.CommandType.Live)
+    def terrain(_connection=None):
+        _output('terrain', _connection)
 
     @game_commands.Command('s4t.character', command_type=game_commands.CommandType.Live)
     def character(_connection=None):

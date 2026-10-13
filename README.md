@@ -3,8 +3,8 @@
 Sources publiques du launcher Windows et du mod Sims 4 de S4Together, projet multijoueur expérimental.
 Le serveur n'est pas inclus.
 
-Sources actuelles : **client0.1.31**, transport des grands instantanés corrigé.
-La dernière release GitHub est **v0.1.30**, publiée le13/10/2026 avec ZIP et SHA256 vérifiés. Le candidat0.1.31 n'a pas encore été publié comme release.
+Sources actuelles : **client0.1.32**, identifiants de terrain stables et relevés d’objets automatiquement synchronisés.
+La release **v0.1.32** est en préparation ; la dernière version téléchargeable est celle de releases/latest. Objets seulement : murs, sols, toits et relief non synchronisés ; latence <5s non mesurée dans le vrai jeu.
 La mise à jour automatique suit les releases publiées, pas les commits de cette branche.
 
 **Télécharger :** [dernière release](https://github.com/SuguruFPS/S4Together-client/releases/latest) →

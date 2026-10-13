@@ -3,7 +3,7 @@
 API de présence vérifiée par désassemblage (1.128, lecture seule), jamais exécutée en jeu :
 simulation.zip — services.get_persistence_service() ; PersistenceService.get_save_slot_proto_guid()
 (_save_game_data_proto.guid ou None), get_save_slot_proto_buff() (save_slot ou None),
-get_world_id_from_zone(zone_id) (0 si zone inconnue) ; Zone.lot.lot_id (lu par Zone.get_zone_info) ;
+get_world_id_from_zone(zone_id) (0 si zone inconnue) ; get_zone_proto_buff(zone_id).lot_description_id ;
 services.active_household(), active_household_id(), active_sim_info() ; Household.sim_info_gen() ;
 SimInfo.is_instanced(), SimInfo.get_sim_instance() ; ClientObjectMixin.position (transform.translation)
 et .orientation (transform.orientation). core.zip — sims4.math.yaw_quaternion_to_angle(quaternion).
@@ -103,7 +103,7 @@ class GameAdapter:
         """
         self._main_thread()
         result = {'saveId': None, 'saveIdSource': None, 'nativeHouseholdId': None, 'activeSimId': None,
-                  'simIds': None, 'worldId': None, 'lotId': None}
+                  'simIds': None, 'worldId': None, 'lotId': None, 'homeLotId': None}
         missing = []
         services = self.services
         if services is None:
@@ -116,11 +116,21 @@ class GameAdapter:
             if save is not None:
                 result['saveId'], result['saveIdSource'] = save
         if zone is not None:
-            result['lotId'] = self._read(missing, 'lotId', lambda: _native(zone.lot.lot_id))
+            # Description partagée entre sauvegardes : l'instance lot/zone est propre à chaque partie.
+            result['lotId'] = self._read(missing, 'lotId', lambda: _native(persistence.get_zone_proto_buff(zone.id).lot_description_id))
             if persistence is not None:
                 result['worldId'] = self._read(missing, 'worldId', lambda: _native(persistence.get_world_id_from_zone(zone.id)))
         household = self._read(missing, 'household', services.active_household)
         if household is not None:
+            # Zéro signifie sans domicile ; une zone inconnue n'est jamais assimilée à zéro.
+            try:
+                home_zone = household.home_zone_id
+                if type(home_zone) is not int or home_zone < 0:
+                    raise ValueError('home_zone_id')
+                if home_zone:
+                    result['homeLotId'] = self._read(missing, 'homeLotId', lambda: _native(persistence.get_zone_proto_buff(home_zone).lot_description_id))
+            except Exception:
+                missing.append('homeLotId')
             result['nativeHouseholdId'] = self._read(missing, 'nativeHouseholdId', lambda: _native(services.active_household_id()))
             def members():
                 ids = [_native(info.sim_id) for info in household.sim_info_gen()]

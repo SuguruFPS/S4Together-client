@@ -177,7 +177,7 @@ class ConnectionManager:
         request = {'v': 1, 'id': request_id, 'type': request_type, 'payload': payload or {}}
         if request_type not in ('snapshot', 'chat', 'object.set', 'ping', 'ack', 'character.resume', 'character.bind', 'character.checkpoint',
                                 'game.join', 'game.state', 'game.leave', 'game.snapshot', 'game.appearance.publish', 'game.appearance.list', 'game.appearance.get', 'game.visibility.report',
-                                'game.interaction',
+                                'game.interaction', 'terrain.publish', 'terrain.get', 'terrain.catalog',
                                 'property.claim', 'property.release'):
             raise ValueError('Commande mod non autorisée')
         if len(json.dumps(request).encode('utf-8')) > 65536:

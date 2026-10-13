@@ -1,4 +1,8 @@
-S4Together 0.1.31-game-test — mod de test, launcher 0.1.31 (serveur recommandé 0.1.26). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.32-game-test — mod de test, launcher 0.1.32 (serveur recommandé 0.1.29). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+CORRECTIFS 0.1.32
+Les joueurs utilisent maintenant le même identifiant de terrain entre sauvegardes. Tous les PC doivent installer le launcher ET réinstaller le mod 0.1.32, jeu fermé. Le serveur vérifie que le domicile déclaré est réservé au bon foyer ; les visites chez les autres restent possibles. La carte du jeu n'empêche pas encore l'achat d'une maison occupée : ce contrôle serveur ne l'annule pas dans le jeu.
+Relevés de terrain : publication automatique des objets et contours après arrivée réelle du Sim, récupération des autres terrains à la connexion et après changement, persistance serveur. Les objets sont appliqués uniquement dans la copie locale du foyer S4T de l'autre joueur ; remplacement refusé si la définition manque, objets sur des supports préservés. Murs, sols, toits et relief NON synchronisés. Latence inférieure à cinq secondes NON VALIDÉE EN JEU. Diagnostic : Ctrl+Maj+C puis s4t.terrain, ou s4t.diagnostic.
 
 CORRECTIFS 0.1.31
 Grands instantanés négociés, découpés sous64Kio puis réassemblés avec empreinte et taille strictes, y compris HELLO et reprise via le pont. Files bornées en octets, historique sans copies massives. Pour profiter du correctif, tous les joueurs doivent utiliser launcher ET mod0.1.31 ; réinstaller le mod depuis Paramètres, jeu fermé.

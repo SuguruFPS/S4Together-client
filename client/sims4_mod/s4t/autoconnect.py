@@ -25,7 +25,8 @@ def game_cancel(handle):
 class AutoLink:
     def __init__(self, runtime, load_settings, scheduler=game_scheduler, cancel=game_cancel, play_intent=None, season_sync=None,
                  character_sync=None, presence_sync=None, home_sync=None, appearance_sync=None, remote_households=None,
-                 remote_motion=None, interaction_observer=None, interaction_publisher=None):
+                 remote_motion=None, interaction_observer=None, interaction_publisher=None,
+                 terrain_sync=None, terrain_events=None, terrain_factory=None):
         self.runtime = runtime
         self.interaction_observer = interaction_observer
         self.interaction_publisher = interaction_publisher
@@ -36,6 +37,8 @@ class AutoLink:
         self.remote_motion = remote_motion
         self.presence_sync = presence_sync
         self.home_sync = home_sync
+        self.terrain_sync, self.terrain_events, self.terrain_factory = terrain_sync, terrain_events, terrain_factory
+        self.terrain_context = None
         self.load_settings = load_settings
         self.play_intent = play_intent
         self.season_sync = season_sync
@@ -120,6 +123,46 @@ class AutoLink:
             self.home_sync.tick(manager, character, getattr(manager, 'snapshot', None))
         except Exception as error:
             log('home_lot', type(error).__name__)
+
+    def _forget_terrain(self, manager=None):
+        if self.terrain_events is not None:
+            self.terrain_events.stop()
+        if self.terrain_sync is not None:
+            self.terrain_sync.reset(manager)
+        self.terrain_context = None
+
+    def _terrain(self, manager, status, loaded, flush=False):
+        active = bool(status.get('authenticated')) and loaded and self.character_sync is not None and self.character_sync.state == 'bound' and self.presence_sync is not None and self.presence_sync.active()
+        if not active:
+            if self.terrain_context is not None:
+                self._forget_terrain(manager)
+            return
+        if self.terrain_sync is None and self.terrain_factory is not None:
+            try:
+                self.terrain_sync, self.terrain_events = self.terrain_factory()
+            except Exception as error:
+                log('terrain_init', type(error).__name__)
+                self.terrain_factory = None
+                return
+        if self.terrain_sync is None:
+            return
+        context = (self.presence_sync.stream_id, self.character_sync.character.get('characterId'))
+        if context != self.terrain_context:
+            if self.terrain_context is not None:
+                self._forget_terrain(manager)
+            else:
+                self.terrain_sync.reset(manager)
+            self.terrain_context = context
+            if self.terrain_events is not None:
+                self.terrain_events.start()
+        ghosts = getattr(self.remote_households, 'ghosts', None) or {}
+        allowed = {}
+        for lot, player in getattr(self.terrain_sync, 'wanted', {}).items():
+            household = (ghosts.get(player) or {}).get('householdId')
+            if household:
+                allowed[lot] = {str(household)}
+        step = self.terrain_sync.flush if flush else self.terrain_sync.tick
+        step(manager, True, self.character_sync.character, getattr(manager, 'snapshot', None), allowed)
 
     def _remote(self, manager, status, observation):
         """Apparences échangées puis foyers « Nom (S4T) » des autres joueurs, partie liée seulement."""
@@ -287,12 +330,15 @@ class AutoLink:
             sync.flush(manager, saved)
         except Exception as error:
             log('character_flush', type(error).__name__)
-        if self.home_sync is None or sync.state != 'bound':
+        if sync.state != 'bound':
             return
-        try:
-            self.home_sync.flush(manager, sync.character, getattr(manager, 'snapshot', None))
-        except Exception as error:
-            log('home_lot_flush', type(error).__name__)
+        if self.home_sync is not None:
+            try:
+                self.home_sync.flush(manager, sync.character, getattr(manager, 'snapshot', None))
+            except Exception as error:
+                log('home_lot_flush', type(error).__name__)
+        if saved:
+            self._terrain(manager, manager.status(), True, flush=True)
 
     def on_game_saved(self):
         """Sauvegarde du jeu réussie (manuelle, automatique, voyage, sortie) : le serveur reçoit l'état enregistré."""
@@ -310,12 +356,13 @@ class AutoLink:
         self._leave('teardown')
         self._forget_motion()
         self._forget_interactions()
+        self._forget_terrain()
 
     def deliver(self, manager, messages):
         """Réponses lues hors de tick() (commande s4t.poll) : sans cela, un ACK personnage serait perdu."""
         for name, sync in (('character', self.character_sync), ('presence', self.presence_sync), ('home_lot', self.home_sync),
                            ('appearance', self.appearance_sync), ('remote_motion', self.remote_motion),
-                           ('interaction_publisher', self.interaction_publisher)):
+                           ('interaction_publisher', self.interaction_publisher), ('terrain', self.terrain_sync)):
             if sync is None:
                 continue
             try:
@@ -369,6 +416,10 @@ class AutoLink:
             self._home(manager, status, observation.get('loaded'))
             self._remote(manager, status, observation)
             self._presence(manager, status, observation.get('loaded'))
+            try:
+                self._terrain(manager, status, observation.get('loaded'))
+            except Exception as error:
+                log('terrain', type(error).__name__)
             try:
                 self._motion(manager)
             except Exception as error:
