@@ -47,6 +47,39 @@ def _install_teardown(zone_class, commands):
     return True
 
 
+def _install_save(commands, module=None):
+    """Sauvegarde réussie : checkpoint personnage et domicile envoyés tout de suite au serveur.
+
+    Vérifié par désassemblage de simulation.zip 1.128 : toutes les sauvegardes (commandes save_game,
+    override_save_slot, save_to_new_slot, autosave, et save_to_scratch_slot_gen au voyage ou à la sortie)
+    passent par le générateur PersistenceService.save_game_gen(self, timeline, save_game_data,
+    send_save_message, check_cooldown, ignore_callback), qui renvoie un SaveGameResult. Appel réel non vérifié
+    en jeu. Sans ce hook, le checkpoint périodique et celui du déchargement de zone restent seuls.
+    """
+    try:
+        if module is None:
+            from services import persistence_service as module
+        service_class = module.PersistenceService
+        success = module.SaveGameResult.SUCCESS
+        method = service_class.save_game_gen
+    except Exception as error:
+        log('bootstrap', 'save_unavailable:' + type(error).__name__)
+        return False
+    if getattr(method, '_s4t_wrapper', False):
+        return True
+    def save_game_gen(self, *args, **kwargs):
+        result = yield from method(self, *args, **kwargs)
+        try:
+            if result == success and commands._auto is not None:
+                commands._auto.on_game_saved()
+        except Exception as error:
+            log('game_saved', type(error).__name__)
+        return result
+    save_game_gen._s4t_wrapper = True
+    service_class.save_game_gen = save_game_gen
+    return True
+
+
 def install():
     log('bootstrap', 'started')
     try:
@@ -72,6 +105,7 @@ def install():
         loaded._s4t_wrapper = True
         zone.Zone.on_loading_screen_animation_finished = loaded
         _install_teardown(zone.Zone, commands)
+        _install_save(commands)
         log('bootstrap', 'registered')
         return True
     except Exception as error:

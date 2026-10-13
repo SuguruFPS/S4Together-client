@@ -52,3 +52,29 @@ def text(diag):
         lines.append(('OK  ' if ok else 'NON ') + label + ' — ' + detail)
     head = 'Tout est en place.' if blocked is None else 'Bloqué à : ' + blocked
     return head + '\n\n' + '\n'.join(lines) + '\n\nPour vous voir : soyez tous les deux sur le MÊME terrain, attendez 30 s, puis refaites s4t.visible.'
+
+
+STEP_CODES = ('connected', 'joined', 'other_player', 'positions', 'appearance', 'household', 'instance', 'moving')
+COUNTER_MAX = 1000000
+LOWER = frozenset('abcdefghijklmnopqrstuvwxyz_')
+
+
+def report(diag):
+    """Charge de game.visibility.report : étapes (bool) et compteurs bornés, ni identité, ni zone, ni position."""
+    presence = diag.get('presence') or {}
+    motion = diag.get('remoteMotion') or {}
+    households = diag.get('remoteHouseholds') or {}
+    appearance = diag.get('appearance') or {}
+    counters = {
+        'participants': presence.get('participants'), 'states': presence.get('remoteStatesSeen'),
+        'poses': motion.get('poses'), 'instances': motion.get('instances'), 'spawned': motion.get('spawned'),
+        'failed': motion.get('failed'), 'adopted': motion.get('adopted'), 'routed': motion.get('routed'),
+        'stuck': motion.get('stuck'), 'unrepresented': motion.get('unrepresented'),
+        'appearance_remote': len(appearance.get('remote') or []), 'appearance_failed': len(appearance.get('failed') or []),
+        'ghosts': len(households.get('ghosts') or {}), 'ghosts_failed': len(households.get('failed') or []),
+    }
+    for code, value in sorted((motion.get('rejected') or {}).items()):
+        if len(counters) < 32 and isinstance(code, str) and 0 < len(code) <= 25 and all(c in LOWER for c in code):
+            counters['rej_' + code] = value
+    return {'steps': {code: bool(ok) for code, (ok, _, _) in zip(STEP_CODES, steps(diag))},
+            'counters': {k: min(max(_n(v), 0), COUNTER_MAX) for k, v in counters.items()}}

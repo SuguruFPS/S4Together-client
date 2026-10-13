@@ -175,8 +175,10 @@ public partial class MainWindow
         var hello = created.Session.Hello!;
         if (settings.IdentityForWorld(WorldIdOf(created), address, hello.PlayerId) is not { } previous) return created;
         var answer = MessageBox.Show(this,
-            $"Ce serveur est le même que {previous.Endpoint}, où tu as déjà un compte et tes personnages.\n\nReprendre ce compte ? (Non = nouveau compte vide)",
-            "Même serveur, autre adresse", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            $"Cette adresse annonce le même monde que {previous.Endpoint}, où tu as déjà un compte.\n\n" +
+            "Vérifie que cette nouvelle adresse appartient bien à ton serveur : le nom du monde ne le garantit pas. " +
+            "Reprendre le compte transmet son identité à cette adresse.\n\nReprendre ce compte ? (Non = nouveau compte vide)",
+            "Même serveur, autre adresse", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes) return created;
         await created.DisposeAsync();
         try { return await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, (previous.PlayerId, previous.Token)); }

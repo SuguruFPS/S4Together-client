@@ -129,7 +129,7 @@ class RemoteMotion:
         self.adapter = adapter if adapter is not None else GameMotion()
         self.new_id = new_id
         self.rejected = {}
-        self.spawned = self.routed = self.gaps = self.despawned = self.abandoned = 0
+        self.spawned = self.routed = self.gaps = self.despawned = self.abandoned = self.adopted = 0
         self.applied = self.animations = self.unrepresented = 0
         self.snapshots = {'requested': 0, 'applied': 0, 'refused': 0, 'timeouts': 0, 'stale': 0}
         self.attempts = {}       # playerId -> spawns ratés ; gardé d'une zone à l'autre (pas de boucle d'échecs).
@@ -515,6 +515,9 @@ class RemoteMotion:
             return self._forget(player)
         if not current.get('instanced'):
             return self._forget(player)
+        if record.get('adopted') and self._mine(player, record['household'], current):
+            # Créée par le jeu (le clone habite ici) : elle reste sur le terrain comme un habitant.
+            return self._forget(player)
         if not self._mine(player, record['household'], current):
             # Instance remplacée par le jeu ou Sim réutilisé : ce n'est plus la nôtre, elle reste sur le terrain.
             self.abandoned += 1
@@ -569,8 +572,7 @@ class RemoteMotion:
                 if self._spawn(player, household, pose, current):
                     return
                 continue
-            if not self._mine(player, household, current):
-                self._not_ours(player)
+            if not self._mine(player, household, current) and not self._adopt(player, household, current):
                 continue
             action = decide(current, pose, self.moves.setdefault(player, new_move()))
             if action == 'gap':
@@ -586,6 +588,20 @@ class RemoteMotion:
             except Exception as error:
                 self._reject('route:' + type(error).__name__)
             return
+
+    def _adopt(self, player, household, current):
+        """Instance du clone créée par le jeu (le clone habite ce terrain, rechargement de zone) : _clone a déjà
+        prouvé foyer S4T de ce joueur, Sim unique, non jouable. Elle est pilotée mais jamais retirée par nous."""
+        try:
+            self.owned[player] = dict(_own(household, str(current.get('localSimId')), current['instance']), adopted=True)
+        except TypeError:
+            self._not_ours(player)
+            return False
+        self.moves.pop(player, None)
+        self.foreign.discard(player)
+        self.adopted += 1
+        log('remote_motion', 'adopted')
+        return True
 
     def _not_ours(self, player):
         """Le clone a une instance qui n'est pas celle créée ici : ni trajet ni retrait, abandon signalé une fois."""
@@ -641,7 +657,7 @@ class RemoteMotion:
                 'participants': len(self.participants), 'streams': len(self.streams), 'poses': len(self.poses),
                 'posesApplied': self.applied, 'mapped': len(self.mapping), 'unrepresented': self.unrepresented,
                 'instances': len(self.owned), 'foreign': len(self.foreign), 'rotation': 'spawn_only',
-                'spawned': self.spawned, 'routed': self.routed,
+                'spawned': self.spawned, 'adopted': self.adopted, 'routed': self.routed,
                 'teleported': 0, 'largeGaps': self.gaps, 'levelUnknown': len(self.unlevel),
                 'gapPending': sum(1 for move in self.moves.values() if move['gap'] == 'asked'), 'despawned': self.despawned, 'abandoned': self.abandoned,
                 'failed': sum(1 for n in self.attempts.values() if n >= MAX_ATTEMPTS),

@@ -206,6 +206,8 @@ class CharacterSync:
         # Garde solo relue à la prochaine vérification : le launcher l'écrit avant de lancer le jeu.
         self.guard = _UNREAD
         self.solo_cause = None
+        # Sauvegarde du jeu réussie pendant qu'une requête était en vol : checkpoint au tick suivant.
+        self.pending_save = False
 
     def tick(self, manager, authenticated, loaded):
         if not authenticated:
@@ -224,10 +226,27 @@ class CharacterSync:
             if observed is not None and observed['householdId'] == self.character['binding']['gameHouseholdId']:
                 self.last_seen = observed['funds']
             self.ticks += 1
-            if self.ticks >= CHECKPOINT_TICKS:
-                self.ticks = 0
-                return self._checkpoint(manager, observed)
+            if self.pending_save or self.ticks >= CHECKPOINT_TICKS:
+                saved, self.pending_save, self.ticks = self.pending_save, False, 0
+                return self._checkpoint(manager, observed, saved)
         return None
+
+    def flush(self, manager, saved=False):
+        """Sauvegarde du jeu ou déchargement de zone : checkpoint tout de suite, sans attendre CHECKPOINT_TICKS.
+
+        `saved` : la partie vient d'être enregistrée ; le checkpoint part même sans changement, pour que le
+        serveur date la dernière sauvegarde. Requête déjà en vol : envoi remis au tick suivant.
+        """
+        if self.state != 'bound' or self.character is None:
+            return None
+        if self.waiting is not None:
+            self.pending_save = self.pending_save or saved
+            return None
+        observed = self._observe()
+        if self._solo_block(self.character, observed):
+            return None
+        self.pending_save, self.ticks = False, 0
+        return self._checkpoint(manager, observed, saved)
 
     def _observe(self):
         try:
@@ -383,27 +402,6 @@ class CharacterSync:
             return None
         return pending
 
-    def _send_bind(self, manager, body):
-        request_id = self.new_id()
-        # Enregistré avant l'envoi : une déconnexion avant l'ACK le fera rejouer à l'identique.
-        self.store.mark_character(body['characterId'] + '/bind', json.dumps({'id': request_id, 'body': body}))
-        manager.request('character.bind', body, request_id)
-        self.waiting = (request_id, 'character.bind')
-        self.state = 'binding'
-
-    def _pending_bind(self, character_id):
-        value = self.store.character_marker(character_id + '/bind')
-        if value is None or value == 'done':
-            return None
-        try:
-            pending = json.loads(value)
-        except ValueError:
-            return None
-        if not isinstance(pending, dict) or not isinstance(pending.get('id'), str) or not _UUID.match(pending['id']) \
-                or not isinstance(pending.get('body'), dict) or pending['body'].get('characterId') != character_id:
-            return None
-        return pending
-
     def _restore(self, checkpoint, observed):
         # Reprise : les fonds du checkpoint serveur font foi après un rechargement de partie (solo, autre PC…).
         # Un voyage garde l'argent du jeu, plus récent que le checkpoint : le prochain checkpoint l'enverra.
@@ -474,13 +472,13 @@ class CharacterSync:
         log('character', 'bound')
         self.notify(TITLE, '{} est relié à ce foyer et sauvegardé sur le serveur.'.format(character.get('name')))
 
-    def _checkpoint(self, manager, observed):
+    def _checkpoint(self, manager, observed, force=False):
         if observed is None or self.character is None:
             return None
         if observed['householdId'] != self.character['binding']['gameHouseholdId']:
             return None
         current = (_clamp(observed['funds']), observed.get('gameWorld'))
-        if current == self.last_sent:
+        if current == self.last_sent and not force:
             return None
         body = {'characterId': self.character['characterId'], 'expectedRevision': self.character['revision'],
                 'funds': current[0], 'lastGameWorld': current[1]}

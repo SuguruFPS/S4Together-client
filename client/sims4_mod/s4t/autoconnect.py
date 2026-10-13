@@ -7,6 +7,7 @@ from .journal import log
 
 POLL_SECONDS = 1
 RETRY_TICKS = 10
+REPORT_TICKS = 60
 
 
 def game_scheduler(owner, seconds, callback):
@@ -245,6 +246,25 @@ class AutoLink:
                                 households.ghosts if households is not None else {},
                                 appearance.remote if appearance is not None else {})
 
+    def visibility_diag(self, manager):
+        """Mêmes données que s4t.visible, pour le rapport automatique et la commande."""
+        diag = {'connection': manager.status()}
+        presence = self.presence_sync
+        diag['presence'] = presence.status() if presence is not None else {'state': 'not_started'}
+        for key, sync in (('appearance', self.appearance_sync), ('remoteHouseholds', self.remote_households),
+                          ('remoteMotion', self.remote_motion)):
+            diag[key] = sync.status() if sync is not None else {'state': 'not_started'}
+        return diag
+
+    def _report(self, manager, status):
+        """Diagnostic « se voir » envoyé seul au serveur une fois par minute sur un terrain : personne n'a à taper
+        s4t.visible. Réponse ignorée ; un refus (cadence, hors jeu) n'a aucun effet sur la partie."""
+        presence = self.presence_sync
+        if not status.get('authenticated') or presence is None or presence.state != 'joined':
+            return
+        from . import visibility
+        manager.request('game.visibility.report', visibility.report(self.visibility_diag(manager)))
+
     def _leave(self, reason):
         # Rien de déclaré : aucune connexion n'est créée pour un mod resté passif.
         if self.presence_sync is None or not self.presence_sync.active():
@@ -255,8 +275,38 @@ class AutoLink:
         except Exception as error:
             log('presence', type(error).__name__)
 
+    def _flush(self, saved):
+        """Personnage et domicile envoyés tout de suite au serveur. Mod passif ou non lié : aucune connexion créée."""
+        sync = self.character_sync
+        if sync is None or sync.state != 'bound':
+            return
+        manager, _ = self.runtime()
+        if not manager.status().get('authenticated'):
+            return
+        try:
+            sync.flush(manager, saved)
+        except Exception as error:
+            log('character_flush', type(error).__name__)
+        if self.home_sync is None or sync.state != 'bound':
+            return
+        try:
+            self.home_sync.flush(manager, sync.character, getattr(manager, 'snapshot', None))
+        except Exception as error:
+            log('home_lot_flush', type(error).__name__)
+
+    def on_game_saved(self):
+        """Sauvegarde du jeu réussie (manuelle, automatique, voyage, sortie) : le serveur reçoit l'état enregistré."""
+        try:
+            self._flush(True)
+        except Exception as error:
+            log('game_saved', type(error).__name__)
+
     def on_zone_teardown(self):
-        """Zone déchargée (voyage, menu principal) : game.leave tant que le réseau répond encore."""
+        """Zone déchargée (voyage, menu principal) : dernier état puis game.leave tant que le réseau répond encore."""
+        try:
+            self._flush(False)
+        except Exception as error:
+            log('teardown_flush', type(error).__name__)
         self._leave('teardown')
         self._forget_motion()
         self._forget_interactions()
@@ -325,6 +375,11 @@ class AutoLink:
                 log('remote_motion', type(error).__name__)
             self._interactions(observation.get('loaded'), manager, status.get('authenticated'))
             self.ticks += 1
+            if self.ticks % REPORT_TICKS == REPORT_TICKS // 2:
+                try:
+                    self._report(manager, status)
+                except Exception as error:
+                    log('visibility_report', type(error).__name__)
             if self.ticks % RETRY_TICKS == 0 and status.get('state') == 'disconnected':
                 self._retry()
         except Exception as error:

@@ -271,8 +271,26 @@ Tests serveur/transport ne prouvent pas la visibilité du Sim dans EA : **NOT_TE
 Relayés par le pont du launcher et autorisés dans le mod. Mémoire serveur seulement (republiée à chaque connexion).
 
 - `game.appearance.publish {simId, profile}` → `{sha256, changed}`. `profile` = `{version:1, format:"simdata-allowlist-v1", game, sha256, data}` (base64 ≤ 58 668 caractères, soit 44 000 octets). Identique → `changed:false`, aucune diffusion. Sinon diffusion à tous de l'événement `game.appearance {playerId, simId, profile}`. Codes : `invalid_request`, `profile_shape`, `profile_version`, `profile_size`, `profile_malformed`, `profile_hash`, `appearance_rate_limited` (10 s), `appearance_full` (64).
+- `game.visibility.report {steps, counters}` → `{recorded:true}`. Envoyé seul par le mod toutes les 60 s quand sa présence est `joined`. `steps` : ≤ 12 booléens, `counters` : ≤ 32 entiers 0–1 000 000, clés `^[a-z_]{1,32}$` ; aucune identité ni position. Le serveur garde le dernier rapport par joueur dans `WorldState.VisibilityReports` (avec la zone de sa présence), écrit à la sauvegarde suivante. Codes : `invalid_request`, `game_not_joined`, `character_required`, `visibility_rate_limited` (20 s).
 - `game.appearance.list {}` → `{appearances:[{playerId, simId, sha256}]}` (sans profil).
 - `game.appearance.get {playerId}` → même forme que l'événement, ou `appearance_unknown`.
 - `snapshot.residents` : `[{playerId, name}]` des propriétaires de terrain, connectés ou non (nom du foyer « Nom (S4T) » d'un ami hors ligne).
 
 Côté mod (`appearance_sync.py`, `remote_household.py`) : chaque autre joueur devient, dans la partie liée seulement, un foyer natif « Nom (S4T) » (description `S4T:<playerId>:<sha16>`), créé par la séquence de clonage du jeu, qui emménage dans sa maison résolue par `home_lots` si elle est libre. NOT_TESTED_GAME.
+
+## Sauvegarde du jeu et sortie (mod 0.1.28, protocole inchangé)
+- Sauvegarde réussie du jeu (manuelle, automatique, voyage, sortie) : le mod envoie tout de suite `character.checkpoint`, même sans changement, pour que `savedAt` date la dernière sauvegarde ; puis `property.claim`/`property.release` si le domicile du foyer a changé. Aucun champ ajouté : compatible serveur 0.1.21.
+- Déchargement de zone : `character.checkpoint` (seulement si l'état a changé) avant `game.leave`.
+- Requête déjà en vol : le checkpoint de sauvegarde part au tick suivant.
+- Déménagement vers un terrain que le snapshot donne à un autre foyer : ni `property.release` ni `property.claim` ; l'ancien domicile reste réservé.
+- Non transféré : le contenu construit du terrain (murs, objets). Seuls le domicile (`lot_description_id`), les fonds et le monde du personnage sont synchronisés.
+
+
+## Déménagement atomique `property.move` (serveur 0.1.23, mod et launcher 0.1.29)
+- Requête : `property.move {fromLotId, lotId, householdId}`. Le serveur libère `fromLotId` et réserve `lotId` dans la même mutation ; en cas de refus du nouveau terrain (`lot_taken`, `lot_limit`, DLC, `not_found`), rien ne change et l'ancien terrain reste réservé.
+- Refus : `invalid_request` si `fromLotId == lotId` ou champ absent ; `forbidden` si `fromLotId` n'appartient pas au joueur ou au foyer indiqué.
+- Réponse : `{lotId, fromLotId, householdId, sequence}` ; snapshot diffusé comme pour `property.claim`.
+- Pont du launcher : type ajouté à la liste relayée. Un launcher antérieur à 0.1.29 répond `forbidden` (« Requête non relayée ») ; mod et launcher sont livrés dans le même paquet.
+- Mod : `HomeLotSync` envoie `property.move` quand le foyer a déjà un domicile serveur. Sur `unknown_type` ou `invalid_request` (serveur antérieur à 0.1.23), repli jusqu'à la prochaine connexion sur `property.release` puis `property.claim`, non atomique.
+- Refus `lot_taken` reçu du serveur : ni nouvel essai ni libération de l'ancien domicile tant que le joueur n'a pas changé de maison ; un refus vu dans le snapshot tombe dès que le snapshot montre la maison libre.
+- NOT_TESTED_GAME.

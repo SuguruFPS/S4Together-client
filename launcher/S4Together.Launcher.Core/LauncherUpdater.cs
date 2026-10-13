@@ -136,7 +136,12 @@ function NoLinks([string]$path) {
     if($next -eq $current){break}; $current=$next
   }
 }
-function Hash([string]$path) { return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
+function Hash([string]$path) {
+  $stream=[System.IO.File]::OpenRead($path)
+  $sha=[System.Security.Cryptography.SHA256]::Create()
+  try { return [System.BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','').ToLowerInvariant() }
+  finally { $sha.Dispose(); $stream.Dispose() }
+}
 function GameOpen { return @(Get-Process -Name TS4_x64,TS4,TS4_DX9_x64 -ErrorAction SilentlyContinue).Count -gt 0 }
 function StartLauncher([string]$exe,[string]$arguments) {
   $start=New-Object System.Diagnostics.ProcessStartInfo

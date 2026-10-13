@@ -1,4 +1,9 @@
-S4Together 0.1.27-game-test — mod de test, launcher 0.1.27 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.30-game-test — mod de test, launcher 0.1.30 (serveur recommandé 0.1.23). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+CORRECTIFS 0.1.30
+La mise à jour du launcher utilise SHA256 directement, sans dépendre de Get-FileHash.
+Un serveur ancien conserve ton ancien terrain si le déménagement sécurisé n'est pas disponible.
+Le transfert de compte vers une nouvelle adresse exige ta confirmation ; un identifiant de monde seul ne garantit pas le serveur.
 
 MISE À JOUR AUTOMATIQUE
 À chaque démarrage, le launcher vérifie la dernière version publiée sur

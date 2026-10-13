@@ -82,7 +82,7 @@ public partial class App : Application
         window.StatusBar.Text = "Vérification des mises à jour…";
         try
         {
-            var updater = new LauncherUpdater();
+            using var updater = new LauncherUpdater();
             using var checkTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
             var version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
             var release = await updater.CheckAsync(version, checkTimeout.Token);

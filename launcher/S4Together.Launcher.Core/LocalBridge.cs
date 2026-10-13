@@ -26,8 +26,8 @@ public sealed class LocalBridge : IAsyncDisposable
     static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(5);
     static readonly TimeSpan HelloTimeout = TimeSpan.FromSeconds(10);
     static readonly HashSet<string> RelayedTypes =
-        ["snapshot", "household.create", "household.select", "property.claim", "property.release", "visit", "chat", "object.set", "ping", "ack",
-         "character.resume", "character.bind", "character.checkpoint", "game.join", "game.state", "game.leave", "game.snapshot", "game.interaction", "game.appearance.publish", "game.appearance.list", "game.appearance.get", "zone.snapshot"];
+        ["snapshot", "household.create", "household.select", "property.claim", "property.release", "property.move", "visit", "chat", "object.set", "ping", "ack",
+         "character.resume", "character.bind", "character.checkpoint", "game.join", "game.state", "game.leave", "game.snapshot", "game.interaction", "game.appearance.publish", "game.appearance.list", "game.appearance.get", "game.visibility.report", "zone.snapshot"];
 
     readonly TcpListener listener;
     readonly IBridgeUpstream upstream;

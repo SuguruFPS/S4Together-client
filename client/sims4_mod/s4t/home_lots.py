@@ -75,6 +75,14 @@ def own_lot(snapshot, household_id):
     return None
 
 
+def taken_by_other(snapshot, lot_id, household_id):
+    """Vrai si le snapshot serveur donne déjà ce terrain à un autre foyer."""
+    for lot in lots_of(snapshot):
+        if lot.get('id') == lot_id and isinstance(lot.get('ownerId'), str) and lot.get('householdId') != household_id:
+            return True
+    return False
+
+
 def player_names(snapshot):
     """{playerId: nom} : `residents` nomme aussi les propriétaires hors ligne ; `players` (connectés) prime."""
     names = {}
@@ -118,7 +126,11 @@ class HomeLotSync:
         self.waiting = None
         self.cooldown = 0
         self.refused = None
+        # Vrai quand le refus vient du snapshot : il tombe dès que le snapshot montre la maison libre.
+        self.seen_taken = False
         self.homes = []
+        # Un serveur sans déménagement atomique ne doit jamais faire perdre l'ancien domicile.
+        self.no_move = False
 
     def tick(self, manager, character, snapshot):
         if character is None or character.get('status') != 'bound':
@@ -136,12 +148,36 @@ class HomeLotSync:
         if desired == current:
             self.refused = None
             return None
-        if current is not None:
-            # Un seul domicile par foyer serveur : l'ancien est libéré avant de réserver le nouveau.
-            return self._send(manager, 'property.release', {'lotId': current})
-        if desired == self.refused:
+        if desired is not None and taken_by_other(snapshot, desired, character.get('householdId')):
+            # Déménagement vers une maison déjà habitée sur le serveur : l'ancien domicile n'est pas libéré
+            # pour un claim qui serait refusé (lot_taken).
+            self.seen_taken = True
+            if desired != self.refused:
+                self.refused = desired
+                log('home_lot', 'move_blocked:lot_taken')
+                self._inform('taken/' + desired, "Cette maison est déjà habitée par un autre joueur du serveur : "
+                                                 "S4Together ne l'enregistre pas pour toi.")
             return None
+        if desired is not None and desired == self.refused:
+            if not self.seen_taken:
+                # Refus du serveur que le snapshot ne montre pas encore : ni nouvel essai ni libération de l'ancien.
+                return None
+            self.refused, self.seen_taken = None, False
+        if current is not None and desired is not None:
+            if self.no_move:
+                return None
+            # Déménagement atomique côté serveur : l'ancien terrain n'est libéré que si le nouveau est accordé.
+            return self._send(manager, 'property.move', {'fromLotId': current, 'lotId': desired,
+                                                         'householdId': character['householdId']})
+        if current is not None:
+            # Le foyer est devenu sans domicile dans le jeu ; ce n'est pas un déménagement.
+            return self._send(manager, 'property.release', {'lotId': current})
         return self._send(manager, 'property.claim', {'lotId': desired, 'householdId': character['householdId']})
+
+    def flush(self, manager, character, snapshot):
+        """Sauvegarde du jeu ou déchargement de zone : domicile republié sans attendre le délai de nouvel essai."""
+        self.cooldown = 0
+        return self.tick(manager, character, snapshot)
 
     def _send(self, manager, kind, payload):
         request_id = self.new_id()
@@ -161,10 +197,15 @@ class HomeLotSync:
                 continue
             code = message.get('code') if isinstance(message.get('code'), str) else 'error'
             log('home_lot', kind + ':' + code)
+            if kind == 'property.move' and code in ('unknown_type', 'invalid_request'):
+                self.no_move = True
+                self._inform('move_unsupported', "Le serveur n'a pas accepté le déménagement sécurisé. "
+                             "Ton ancienne maison reste réservée. Une mise à jour du serveur peut être nécessaire.")
+                continue
             self.cooldown = RETRY_TICKS
-            if kind == 'property.claim' and code == 'lot_taken':
+            if kind in ('property.claim', 'property.move') and code == 'lot_taken':
                 # Un autre joueur habite déjà cette maison sur le serveur : pas de nouvel essai en boucle.
-                self.refused = lot_id
+                self.refused, self.seen_taken = lot_id, False
                 self._inform('taken/' + lot_id, "Cette maison est déjà habitée par un autre joueur du serveur : "
                                                 "S4Together ne l'enregistre pas pour toi.")
 
