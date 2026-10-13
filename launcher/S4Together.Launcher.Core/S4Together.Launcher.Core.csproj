@@ -7,6 +7,7 @@
     <RootNamespace>S4Together.Launcher.Core</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../shared/protocol/ChunkTransport.cs" Link="ChunkTransport.cs" />
     <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
     <InternalsVisibleTo Include="S4Together.Launcher.Tests" />
   </ItemGroup>

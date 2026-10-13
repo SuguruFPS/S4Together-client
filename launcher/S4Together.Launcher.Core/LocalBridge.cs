@@ -37,6 +37,7 @@ public sealed class LocalBridge : IAsyncDisposable
     readonly HashSet<string> modRequests = [];
     readonly Lock gate = new();
     WebSocket? mod;
+    readonly System.Collections.Concurrent.ConcurrentDictionary<WebSocket,bool> chunking=new();
     Task? acceptLoop;
 
     public int Port { get; }
@@ -125,6 +126,7 @@ public sealed class LocalBridge : IAsyncDisposable
             {
                 if (ReferenceEquals(mod, socket)) { mod = null; wasCurrent = true; }
             }
+            if(socket is not null) chunking.TryRemove(socket,out var removedCapability);
             socket?.Abort();
             if (wasCurrent) ModConnectionChanged?.Invoke(false);
         }
@@ -190,6 +192,9 @@ public sealed class LocalBridge : IAsyncDisposable
             Rejected?.Invoke("token");
             return false;
         }
+        var supports=payload?["transportChunking"] is JsonValue capability && capability.TryGetValue<int>(out var chunkVersion) && chunkVersion==1;
+        if(payload?.ContainsKey("transportChunking")==true && !supports) { Rejected?.Invoke("chunking"); return false; }
+        chunking[socket]=supports;
         var snapshot = await upstream.SnapshotAsync(timeout.Token);
         await SendToAsync(socket, new JsonObject
         {
@@ -255,7 +260,7 @@ public sealed class LocalBridge : IAsyncDisposable
     {
         var bytes = Encoding.UTF8.GetBytes(message.ToJsonString());
         await sendLock.WaitAsync(cancel);
-        try { await socket.SendAsync(bytes, WebSocketMessageType.Text, true, cancel); }
+        try { foreach(var frame in S4Together.Transport.ChunkTransport.Encode(bytes,chunking.GetValueOrDefault(socket))) await socket.SendAsync(frame, WebSocketMessageType.Text, true, cancel); }
         finally { sendLock.Release(); }
     }
 

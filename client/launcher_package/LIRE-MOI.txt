@@ -1,6 +1,10 @@
-S4Together 0.1.30-game-test — mod de test, launcher 0.1.30 (serveur recommandé 0.1.23). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.31-game-test — mod de test, launcher 0.1.31 (serveur recommandé 0.1.26). Validation dans Les Sims 4 : NOT_TESTED_GAME
 
-CORRECTIFS 0.1.30
+CORRECTIFS 0.1.31
+Grands instantanés négociés, découpés sous64Kio puis réassemblés avec empreinte et taille strictes, y compris HELLO et reprise via le pont. Files bornées en octets, historique sans copies massives. Pour profiter du correctif, tous les joueurs doivent utiliser launcher ET mod0.1.31 ; réinstaller le mod depuis Paramètres, jeu fermé.
+La capacité réseau16 est testée hors jeu ; aucune validation16Sims ni synchronisation visuelle dans le jeu n'est revendiquée.
+
+CORRECTIFS PRÉCÉDENTS 0.1.30
 La mise à jour du launcher utilise SHA256 directement, sans dépendre de Get-FileHash.
 Un serveur ancien conserve ton ancien terrain si le déménagement sécurisé n'est pas disponible.
 Le transfert de compte vers une nouvelle adresse exige ta confirmation ; un identifiant de monde seul ne garantit pas le serveur.

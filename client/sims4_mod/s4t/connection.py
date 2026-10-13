@@ -30,13 +30,31 @@ def classify_failure(failure):
     return 'network_or_protocol_failure'
 
 
+class ByteBoundedQueue(queue.Queue):
+    """Borne cumulée16Mio en plus du nombre ; hooks sous le mutex de Queue."""
+    def _init(self, maxsize):
+        super()._init(maxsize)
+        self.used_bytes = 0
+
+    def _put(self, item):
+        size = len(json.dumps(item, ensure_ascii=False).encode('utf-8'))
+        if self.used_bytes + size > 16 * 1024 * 1024:
+            raise queue.Full
+        super()._put((item, size)); self.used_bytes += size
+
+    def _get(self):
+        item, size = super()._get()
+        self.used_bytes -= size
+        return item
+
+
 class ConnectionManager:
     def __init__(self, config=None, connector=None, queue_size=128):
         self.config = config or ConfigStore()
         self.connector = connector
         self.active_connector = connector or WebSocket.connect
         self.thread_id = threading.get_ident()
-        self.incoming = queue.Queue(queue_size)
+        self.incoming = ByteBoundedQueue(queue_size)
         self.outgoing = queue.Queue(queue_size)
         self.pending = {}
         self.history = deque(maxlen=100)
@@ -83,7 +101,7 @@ class ConnectionManager:
         self.error = None
         self.phase = 'connecting'
         self.hello_id = str(uuid.uuid4())
-        payload = {'name': display_name, 'dlcs': settings['dlcs']}
+        payload = {'name': display_name, 'dlcs': settings['dlcs'], 'transportChunking': 1}
         if password:
             payload['password'] = password
         payload.update(self.identity)
@@ -102,6 +120,8 @@ class ConnectionManager:
                 return
 
     def _network(self, hello):
+        from .chunks import Assembler
+        assembler = Assembler()
         transport = None
         try:
             transport = self.active_connector(self.endpoint)
@@ -112,6 +132,8 @@ class ConnectionManager:
             hello_deadline = last_ping + 10
             hello_received = self.authenticated
             while not self.stop.is_set():
+                if assembler.expired:
+                    raise TimeoutError('Transmission découpée expirée')
                 if not hello_received and time.monotonic() > hello_deadline:
                     raise TimeoutError('Réponse HELLO dépassée')
                 for _ in range(16):
@@ -124,7 +146,9 @@ class ConnectionManager:
                     transport.send_text(json.dumps({'v': 1, 'id': str(uuid.uuid4()), 'type': 'ping', 'payload': {}}))
                     last_ping = time.monotonic()
                 if transport.buffer or select.select([transport.socket], [], [], 0.1)[0]:
-                    message = json.loads(transport.receive_text())
+                    message = assembler.accept(transport.receive_text())
+                    if message is None:
+                        continue
                     if not isinstance(message, dict) or message.get('v') != 1:
                         raise ValueError('Message protocole invalide')
                     if message.get('id') == hello.get('id'):
@@ -207,7 +231,11 @@ class ConnectionManager:
                 self.disconnect()
                 delivered.append({'v': 1, 'type': 'error', 'ok': False, 'code': self.error})
                 break
-            self.history.append(message)
+            # Le dernier snapshot est déjà conservé dans self.snapshot ; l'historique
+            # ne doit pas garder100 copies de messages pouvant maintenant atteindre16Mio.
+            size = len(json.dumps(message, ensure_ascii=False).encode('utf-8'))
+            self.history.append(message if size <= 65536 else
+                                dict((k, message[k]) for k in ('v','type','id','ok') if k in message))
             delivered.append(message)
             if self.error in ('identity_persistence_failed', 'hello_rejected'):
                 break

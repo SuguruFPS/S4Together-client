@@ -107,7 +107,7 @@ public sealed class ServerSession : IAsyncDisposable
         }
         var session = new ServerSession(client);
         session.Start();
-        var payload = new JsonObject { ["name"] = name, ["dlcs"] = new JsonArray(dlcs.Select(d => (JsonNode)d).ToArray()) };
+        var payload = new JsonObject { ["name"] = name, ["dlcs"] = new JsonArray(dlcs.Select(d => (JsonNode)d).ToArray()), ["transportChunking"] = 1 };
         if (!string.IsNullOrEmpty(password)) payload["password"] = password;
         if (identity is { } id) { payload["playerId"] = id.PlayerId; payload["token"] = id.Token; }
         ServerReply reply;
@@ -177,7 +177,7 @@ public sealed class ServerSession : IAsyncDisposable
         {
             while (!life.IsCancellationRequested)
             {
-                var text = await ReadMessageAsync(socket, life.Token);
+                var text = await ReadMessageAsync(socket, life.Token, allowChunks:true);
                 if (text is null) break;
                 if (JsonNode.Parse(text) is not JsonObject message || message["v"]?.GetValue<int>() != 1 || message["type"] is null)
                 {
@@ -191,7 +191,7 @@ public sealed class ServerSession : IAsyncDisposable
                 else ForeignReplyReceived?.Invoke(message);
             }
         }
-        catch (Exception e) when (e is WebSocketException or JsonException or OperationCanceledException or InvalidOperationException or FormatException)
+        catch (Exception e) when (e is WebSocketException or JsonException or OperationCanceledException or InvalidOperationException or FormatException or IOException or DecoderFallbackException)
         {
             reason = e is OperationCanceledException ? "closed" : "disconnected";
         }
@@ -217,7 +217,22 @@ public sealed class ServerSession : IAsyncDisposable
     }
 
     /// <summary>Lit un message texte complet, borné ; null si fermeture.</summary>
-    internal static async Task<string?> ReadMessageAsync(WebSocket socket, CancellationToken cancel)
+    internal static async Task<string?> ReadMessageAsync(WebSocket socket, CancellationToken cancel, bool allowChunks=false)
+    {
+        if(!allowChunks) return await ReadPhysicalAsync(socket,cancel);
+        using var assembler=new S4Together.Transport.ChunkAssembler();
+        using var timeout=CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        var started=false;
+        while(true)
+        {
+            var physical=await ReadPhysicalAsync(socket,timeout.Token);
+            if(physical is null) { if(assembler.Active)throw new InvalidDataException("Transmission incomplète.");return null; }
+            var complete=assembler.Accept(physical);if(complete is not null)return complete;
+            if(!assembler.Active)throw new InvalidDataException("Transmission invalide.");
+            if(!started) { timeout.CancelAfter(TimeSpan.FromSeconds(30)); started=true; }
+        }
+    }
+    static async Task<string?> ReadPhysicalAsync(WebSocket socket, CancellationToken cancel)
     {
         var buffer = new byte[16384];
         using var stream = new MemoryStream();
