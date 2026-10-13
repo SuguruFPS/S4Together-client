@@ -1,4 +1,10 @@
-S4Together 0.1.35-game-test — mod de test, launcher 0.1.35 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.36-game-test — mod de test, launcher 0.1.36 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+DIAGNOSTIC 0.1.36 — VOISINAGE ET CONSTRUCTIONS
+Cette version ne synchronise pas encore les murs, sols, toits ou relief. Les positions sont partagées entre joueurs sur le même terrain ; deux maisons voisines restent deux terrains différents.
+Le diagnostic ne compte plus ton propre Sim comme autre joueur ni tes propres messages comme poses distantes.
+Après une entrée réellement confirmée en jeu, la sonde native en lecture seule écrit automatiquement, une fois par session, %LOCALAPPDATA%\S4Together\logs\native-probe.json. Aucun appel de construction et aucune modification de sauvegarde. Envoyer ce fichier permettra de poursuivre la recherche d'application des maisons. La commande s4t.native reste disponible pour relancer la sonde manuellement si nécessaire.
+Pour vérifier le rendu actuel, faire voyager un Sim sur le terrain de l'autre joueur puis lancer s4t.visible sur les deux PC. La présence dans le tchat ne suffit pas.
 
 CORRECTIF 0.1.35 — PERSONNAGES ET IMAGES
 Les foyers EA précréés et les clones distants S4T ne sont plus proposés comme tes créations personnelles, même s'ils sont marqués joueurs dans un fichier.

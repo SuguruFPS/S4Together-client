@@ -26,7 +26,7 @@ class AutoLink:
     def __init__(self, runtime, load_settings, scheduler=game_scheduler, cancel=game_cancel, play_intent=None, season_sync=None,
                  character_sync=None, presence_sync=None, home_sync=None, appearance_sync=None, remote_households=None,
                  remote_motion=None, interaction_observer=None, interaction_publisher=None,
-                 terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None):
+                 terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None, native_probe=None):
         self.runtime = runtime
         self.offline_guard = offline_guard
         self.interaction_observer = interaction_observer
@@ -50,6 +50,21 @@ class AutoLink:
         self.handle = None
         self.ticks = 0
         self.sent = None
+        self.native_probe = native_probe
+        self.native_probe_done = False
+
+    def _native_probe(self, status, loaded):
+        # Diagnostic en lecture seule, une tentative par session du jeu, après confirmation native.
+        if (self.native_probe is None or self.native_probe_done or not loaded or not status.get('authenticated')
+                or self.character_sync is None or self.character_sync.state != 'bound'
+                or self.presence_sync is None or self.presence_sync.state != 'joined'):
+            return
+        self.native_probe_done = True
+        try:
+            self.native_probe()
+            log('native_probe', 'saved')
+        except Exception as error:
+            log('native_probe', type(error).__name__)
 
     def on_zone_loaded(self):
         """Vrai si le launcher a demandé l'auto-connexion et que le relevé périodique tourne."""
@@ -441,6 +456,7 @@ class AutoLink:
             self._remote(manager, status, observation)
             self._offline(manager, status, observation.get('loaded'))
             self._presence(manager, status, observation.get('loaded'))
+            self._native_probe(status, observation.get('loaded'))
             try:
                 self._terrain(manager, status, observation.get('loaded'))
             except Exception as error:

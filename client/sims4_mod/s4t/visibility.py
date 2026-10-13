@@ -25,9 +25,9 @@ def steps(diag):
         (state == 'joined', 'Ton Sim est annoncé sur ce terrain',
          'zone ' + str(presence.get('zoneId')) if state == 'joined'
          else PRESENCE.get(state, str(state)) + ('' if not presence.get('reason') else ' (' + str(presence['reason']) + ')')),
-        (participants > 0, 'Un autre joueur est sur le même terrain',
+        (participants > 1, 'Un autre joueur est sur le même terrain',
          '{} joueur(s). Sur deux terrains différents (même voisins, même rue), on ne se voit pas.'.format(participants)),
-        (_n(presence.get('remoteStatesSeen')) > 0 or _n(motion.get('poses')) > 0, 'Positions de l\'autre reçues',
+        (_n(motion.get('poses')) > 0, 'Positions de l\'autre reçues',
          '{} état(s), {} pose(s)'.format(_n(presence.get('remoteStatesSeen')), _n(motion.get('poses')))),
         (bool(appearance.get('remote')), 'Apparence de l\'autre reçue',
          '{} reçue(s), {} en échec'.format(len(appearance.get('remote') or []), len(appearance.get('failed') or []))),
