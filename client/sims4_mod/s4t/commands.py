@@ -74,6 +74,13 @@ def runtime():
 
 def execute(action, *args):
     global _password
+    if action == 'visible':
+        from . import visibility
+        diag = execute('diagnostic')
+        keep = {k: diag.get(k) for k in ('code', 'error_class', 'connection', 'presence', 'appearance',
+                                          'remoteHouseholds', 'remoteMotion')}
+        _save_visibility(keep)
+        return {'ok': True, 'visible': visibility.text(diag), 'steps': [list(s) for s in visibility.steps(diag)]}
     if action == 'diagnostic':
         value = report()
         try:
@@ -187,6 +194,18 @@ def _character_status(manager):
             'soloGuard': sync.solo_status(), 'connection': manager.status()}
 
 
+def _save_visibility(value):
+    import os, time
+    from pathlib import Path
+    root = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'S4Together' / 'logs'
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        (root / 'visibility-last.json').write_text(json.dumps(dict(value, time=int(time.time())), ensure_ascii=False,
+                                                              sort_keys=True, default=str), encoding='utf-8')
+    except OSError as error:
+        log('visibility_save', type(error).__name__)
+
+
 def _output(action, connection, *args):
     log('command_' + action, 'entered')
     try:
@@ -198,6 +217,9 @@ def _output(action, connection, *args):
         game_commands.Output(connection)(json.dumps(value, ensure_ascii=False, sort_keys=True))
     except Exception as error:
         log('console_output', type(error).__name__)
+    if action == 'visible':
+        from .native_ui import dialog
+        dialog('S4Together — Se voir en jeu', value.get('visible') or value.get('message', ''))
     if action in ('diagnostic', 'status', 'poll'):
         from .native_ui import dialog
         status = value if value.get('code') == 'runtime_unavailable' else value.get('connection', value)
@@ -232,6 +254,10 @@ else:
     @game_commands.Command('s4t.diagnostic', command_type=game_commands.CommandType.Live)
     def diagnostic(_connection=None):
         _output('diagnostic', _connection)
+
+    @game_commands.Command('s4t.visible', command_type=game_commands.CommandType.Live)
+    def visible(_connection=None):
+        _output('visible', _connection)
 
     @game_commands.Command('s4t.connect', command_type=game_commands.CommandType.Live)
     def connect(endpoint: str = '', name: str = '', _connection=None):

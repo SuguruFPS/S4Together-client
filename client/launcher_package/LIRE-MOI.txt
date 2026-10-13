@@ -1,4 +1,4 @@
-S4Together 0.1.26-game-test — mod de test, launcher 0.1.26 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.27-game-test — mod de test, launcher 0.1.27 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
 
 MISE À JOUR AUTOMATIQUE
 À chaque démarrage, le launcher vérifie la dernière version publiée sur
@@ -64,6 +64,12 @@ SI LE MOD NE SE CONNECTE PAS
 Ctrl+Maj+C puis s4t.diagnostic. Commande inconnue = le script ne s'est pas chargé
 (mods de script désactivés, ou fichier mal placé) : c'est un échec à signaler.
 Onglet « Diagnostic » : « Exporter (sans secret)… » produit un rapport sans mot de passe ni jeton.
+
+SE VOIR ENTRE JOUEURS
+On ne se voit que sur le MÊME terrain (chez l'un, chez l'autre ou le même terrain public).
+Deux terrains voisins dans la même rue = deux zones différentes : on ne se voit pas.
+Sur le même terrain, attendre 30 s puis Ctrl+Maj+C et s4t.visible : la fenêtre indique l'étape
+qui bloque (copie aussi dans %LOCALAPPDATA%\S4Together\logs\visibility-last.json).
 
 RÉSEAU
 127.0.0.1 désigne le PC où tourne le jeu, pas le PC serveur.
