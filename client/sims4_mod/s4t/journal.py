@@ -5,7 +5,7 @@ import platform
 from pathlib import Path
 import time
 
-VERSION = '0.1.23-game-test'
+VERSION = '0.1.24-game-test'
 
 def log(event, code='ok'):
     root = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'S4Together' / 'logs'

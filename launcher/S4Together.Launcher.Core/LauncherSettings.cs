@@ -33,7 +33,7 @@ public sealed class LauncherSettings
 
     static readonly JsonSerializerOptions Json = new() { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.Never };
     static readonly byte[] Entropy = Encoding.UTF8.GetBytes("S4Together.Launcher.v2");
-    const int MaxFileBytes = 256 * 1024;
+    const int MaxFileBytes = 4 * 1024 * 1024; // gardes solo jusqu'à 2 × 1024 identifiants par personnage
 
     public static string DefaultFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "S4Together", "launcher");
 

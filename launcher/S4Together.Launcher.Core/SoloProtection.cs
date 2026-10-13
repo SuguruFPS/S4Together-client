@@ -5,7 +5,7 @@ namespace S4Together.Launcher.Core;
 /// <summary>Union des parties solo connues ; une limite dépassée bloque le lancement, jamais une troncature.</summary>
 public static class SoloProtection
 {
-    const int MaxIds = 128;
+    const int MaxIds = 1024; // sous le plafond du mod (solo_guard.MAX_IDS = 2048)
     public static SoloGuard Merge(string characterId, SoloGuard? previous, IEnumerable<LocalSim> unboundSims)
     {
         if (previous is not null && previous.CharacterId != characterId)

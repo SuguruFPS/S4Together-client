@@ -1,4 +1,4 @@
-S4Together 0.1.23-game-test — mod de test, launcher 0.1.23 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.24-game-test — mod de test, launcher 0.1.24 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
 
 MISE À JOUR AUTOMATIQUE
 À chaque démarrage, le launcher vérifie la dernière version publiée sur

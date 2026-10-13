@@ -3,7 +3,7 @@ import json
 import platform
 import sys
 
-BUILD_VERSION = "0.1.23-game-test"
+BUILD_VERSION = "0.1.24-game-test"
 
 
 def missing_module(error):
