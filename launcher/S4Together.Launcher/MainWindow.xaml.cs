@@ -255,6 +255,7 @@ public partial class MainWindow : Window
             var dlcs = SelectedGame is { } g ? GameLocator.PacksForServer(GameLocator.DetectPacks(g.Path)) : [];
             settings.Dlcs = dlcs.ToList();
             MultiplayerLink created;
+            var hadIdentity = settings.IdentityFor(address) is not null;
             try { created = await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, settings.IdentityFor(address)); }
             catch (ServerRejectedException ex) when (fromDirectory && health?.PasswordRequired is null && ex.Code == "invalid_password")
             {
@@ -262,12 +263,13 @@ public partial class MainWindow : Window
                 password = PasswordBox.Password;
                 created = await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, settings.IdentityFor(address));
             }
+            created = await ResumeAccountOnSameWorld(created, address, dlcs, password, hadIdentity);
             link = created;
             gameEndpoint = ServerDirectory.Key(address);
             var known = ServerDirectory.Remember(settings.KnownServers, address, ServerLabelBox.Text);
             known.LastConnectedUtc = DateTimeOffset.UtcNow;
             settings.RememberServerPassword(address, password ?? "", RememberBox.IsChecked == true);
-            settings.RememberIdentity(address, created.Session.Hello!.PlayerId, created.Session.Hello.Token);
+            settings.RememberIdentity(address, created.Session.Hello!.PlayerId, created.Session.Hello.Token, WorldIdOf(created));
             SaveSettings();
             RefreshDirectory();
             created.EventReceived += message => Dispatcher.InvokeAsync(() => OnServerEvent(message));

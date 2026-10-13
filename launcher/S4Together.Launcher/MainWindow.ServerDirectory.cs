@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -161,6 +162,29 @@ public partial class MainWindow
         catch (Exception ex) when (ex is FormatException or System.IO.IOException or InvalidOperationException)
         { ServerStatus.Text = "Test des serveurs impossible : " + ex.Message; }
         finally { refreshingDirectory = false; DirectoryRefreshButton.IsEnabled = true; }
+    }
+
+    static string WorldIdOf(MultiplayerLink link) =>
+        link.Session.Hello?.Snapshot["worldId"] is JsonValue value && value.TryGetValue(out string? id) ? id : "";
+
+    /// <summary>Nouvelle adresse d'un serveur déjà connu (même worldId) : propose de reprendre l'ancien compte
+    /// au lieu du compte vide que le serveur vient de créer. Refus ou échec : on garde le nouveau compte.</summary>
+    async Task<MultiplayerLink> ResumeAccountOnSameWorld(MultiplayerLink created, ServerAddress address, IReadOnlyList<string> dlcs, string? password, bool hadIdentity)
+    {
+        if (hadIdentity) return created;
+        var hello = created.Session.Hello!;
+        if (settings.IdentityForWorld(WorldIdOf(created), address, hello.PlayerId) is not { } previous) return created;
+        var answer = MessageBox.Show(this,
+            $"Ce serveur est le même que {previous.Endpoint}, où tu as déjà un compte et tes personnages.\n\nReprendre ce compte ? (Non = nouveau compte vide)",
+            "Même serveur, autre adresse", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (answer != MessageBoxResult.Yes) return created;
+        await created.DisposeAsync();
+        try { return await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, (previous.PlayerId, previous.Token)); }
+        catch (ServerRejectedException ex)
+        {
+            Status("Ancien compte refusé (" + ProtocolErrors.French(ex.Code, ex.Message) + ") : nouveau compte conservé.");
+            return await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, (hello.PlayerId, hello.Token));
+        }
     }
 
     bool RequestDirectoryPassword(ServerAddress address)

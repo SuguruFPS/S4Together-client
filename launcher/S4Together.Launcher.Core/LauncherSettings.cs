@@ -10,6 +10,8 @@ public sealed class StoredIdentity
 {
     public string PlayerId { get; set; } = "";
     public string ProtectedToken { get; set; } = "";
+    /// <summary>worldId appris après un HELLO accepté : reconnaît le même serveur sous une autre adresse.</summary>
+    public string WorldId { get; set; } = "";
 }
 
 public sealed class LauncherSettings
@@ -82,8 +84,21 @@ public sealed class LauncherSettings
         return stored.PlayerId.Length > 0 && token.Length > 0 ? (stored.PlayerId, token) : null;
     }
 
-    public void RememberIdentity(ServerAddress address, string playerId, string token) =>
-        Identities[address.ToString()] = new StoredIdentity { PlayerId = playerId, ProtectedToken = Protect(token) };
+    public void RememberIdentity(ServerAddress address, string playerId, string token, string worldId = "") =>
+        Identities[address.ToString()] = new StoredIdentity { PlayerId = playerId, ProtectedToken = Protect(token), WorldId = worldId };
+
+    /// <summary>Compte déjà créé sur le même monde sous une autre adresse (IP changée, LAN puis Internet).
+    /// null si aucun ou ambigu : on ne choisit jamais entre deux comptes.</summary>
+    public (string Endpoint, string PlayerId, string Token)? IdentityForWorld(string worldId, ServerAddress address, string exceptPlayerId)
+    {
+        if (worldId.Length is 0 or > 64) return null;
+        var key = address.ToString();
+        var matches = Identities
+            .Where(e => e.Key != key && e.Value.WorldId == worldId && e.Value.PlayerId.Length > 0 && e.Value.PlayerId != exceptPlayerId)
+            .Select(e => (Endpoint: e.Key, e.Value.PlayerId, Token: Unprotect(e.Value.ProtectedToken)))
+            .Where(m => m.Token.Length > 0).ToArray();
+        return matches.Select(m => m.PlayerId).Distinct(StringComparer.Ordinal).Count() == 1 ? matches[0] : null;
+    }
 
     /// <summary>Le contenu chiffré porte aussi son endpoint : déplacer une entrée ne partage pas son secret.</summary>
     public string PasswordFor(ServerAddress address)

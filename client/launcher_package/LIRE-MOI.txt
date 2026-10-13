@@ -1,4 +1,4 @@
-S4Together 0.1.25-game-test — mod de test, launcher 0.1.25 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.26-game-test — mod de test, launcher 0.1.26 (serveur compatible 0.1.21). Validation dans Les Sims 4 : NOT_TESTED_GAME
 
 MISE À JOUR AUTOMATIQUE
 À chaque démarrage, le launcher vérifie la dernière version publiée sur
@@ -18,6 +18,8 @@ DÉMARRER
    Sur Internet, une connexion WSS avec certificat valide est obligatoire ; une IP publique seule
    est convertie en WSS. Le serveur doit fournir ce transport ; aucun repli en clair n'est effectué.
    « Tester le serveur » vérifie le serveur sans t'y connecter. « Se connecter » ouvre la session.
+   Même serveur sous une nouvelle adresse (IP changée, LAN puis Internet) : le launcher le reconnaît et propose
+   de reprendre ton compte et tes personnages. Réponds « Oui », sinon un compte vide est créé.
    Le mot de passe n'est mémorisé que si tu le demandes, chiffré pour ton compte Windows.
 4. La connexion ouvre « Personnages ». Clique sur la carte de ta sauvegarde ou sur « + Nouveau personnage ».
    Le bouton « Rejoindre » en bas à droite s'active seulement après ce choix. Tu peux modifier le nom dans le détail.
