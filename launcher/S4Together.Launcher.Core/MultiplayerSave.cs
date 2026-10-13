@@ -8,8 +8,8 @@ public sealed record MultiplayerSave(string FilePath, string Name, DateTime Save
         if (!character.Bound || character.GameSimIds.Count == 0) return null;
         var candidates = sims.Where(s => s.Source == "Partie enregistrée" && s.HouseholdId.ToString(System.Globalization.CultureInfo.InvariantCulture) == character.GameHouseholdId)
             .GroupBy(s => s.FilePath, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Select(s => s.SimId.ToString(System.Globalization.CultureInfo.InvariantCulture))
-                .ToHashSet(StringComparer.Ordinal).SetEquals(character.GameSimIds))
+            .Where(group => character.GameSimIds.All(id => group.Any(s => s.SimId.ToString(System.Globalization.CultureInfo.InvariantCulture) == id)) &&
+                group.All(s => s.IsPet || character.GameSimIds.Contains(s.SimId.ToString(System.Globalization.CultureInfo.InvariantCulture))))
             .SelectMany(group => group);
         var matches = candidates
             .OrderByDescending(s => s.SavedAtUtc).ThenBy(s => s.FilePath, StringComparer.OrdinalIgnoreCase).FirstOrDefault();

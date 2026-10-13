@@ -3,8 +3,8 @@
 Sources publiques du launcher Windows et du mod Sims 4 de S4Together, projet multijoueur expérimental.
 Le serveur n'est pas inclus.
 
-Sources actuelles : **client0.1.32**, identifiants de terrain stables et relevés d’objets automatiquement synchronisés.
-La release **v0.1.32** est en préparation ; la dernière version téléchargeable est celle de releases/latest. Objets seulement : murs, sols, toits et relief non synchronisés ; latence <5s non mesurée dans le vrai jeu.
+Sources actuelles : **client 0.1.34**, filtre des foyers précréés, reprise malgré adoption d'un animal, jour de saison commun et sonde native en lecture seule.
+La version téléchargeable est celle de releases/latest. Le rendu mutuel, le jour natif et la latence <5 s restent à vérifier dans deux vrais jeux. Murs, sols, toits et relief non synchronisés.
 La mise à jour automatique suit les releases publiées, pas les commits de cette branche.
 
 **Télécharger :** [dernière release](https://github.com/SuguruFPS/S4Together-client/releases/latest) →

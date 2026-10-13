@@ -10,6 +10,7 @@ public sealed record LocalSim(string Name, string Household, string SaveName, st
     public DateTime SavedAtUtc { get; init; }
     public ulong HouseholdId { get; init; }
     public bool IsActiveHousehold { get; init; }
+    public bool IsPet { get; init; }
     public string SaveId { get; init; } = "";
     public IReadOnlyList<LocalSim> PortraitSources { get; init; } = [];
 }
@@ -85,12 +86,15 @@ public static class LocalSimCatalog
         {
             var sim = Proto.Read(data); var homeId = sim.Number(4);
             if (!homes.TryGetValue(homeId, out var home) || home.Number(26) == 1) continue;
-            // Ne pas remplir la liste avec les PNJ : foyer actif, joué ou marqué joueur.
-            if (homeId != active && home.Number(31) != 1 && home.Number(9) == 0 && !(home.Has(14) && home.Number(14) == 0)) continue;
+            // HouseholdData : 31=is_player, 14=is_unplayed. Le champ 9 indique seulement
+            // le Sim à sélectionner dans ce foyer, y compris les foyers précréés du jeu.
+            // Son existence ne prouve donc jamais que l'utilisateur a joué ce foyer.
+            if (homeId != active && home.Number(31) != 1 && !(home.Has(14) && home.Number(14) == 0)) continue;
             var name = Name(sim.Text(5), sim.Text(6));
             if (name.Length == 0) continue;
             result.Add(new(name, home.Text(3), saveName, "Partie enregistrée", path, sim.Number(1))
-            { SavedAtUtc = File.GetLastWriteTimeUtc(path), HouseholdId = homeId, IsActiveHousehold = homeId == active, SaveId = slot.Number(1).ToString(System.Globalization.CultureInfo.InvariantCulture) });
+            { SavedAtUtc = File.GetLastWriteTimeUtc(path), HouseholdId = homeId, IsActiveHousehold = homeId == active,
+                IsPet = sim.Number(60) is 2 or 3 or 4 or 6, SaveId = slot.Number(1).ToString(System.Globalization.CultureInfo.InvariantCulture) });
         }
         return result;
     }

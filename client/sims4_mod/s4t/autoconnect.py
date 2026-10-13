@@ -26,8 +26,9 @@ class AutoLink:
     def __init__(self, runtime, load_settings, scheduler=game_scheduler, cancel=game_cancel, play_intent=None, season_sync=None,
                  character_sync=None, presence_sync=None, home_sync=None, appearance_sync=None, remote_households=None,
                  remote_motion=None, interaction_observer=None, interaction_publisher=None,
-                 terrain_sync=None, terrain_events=None, terrain_factory=None):
+                 terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None):
         self.runtime = runtime
+        self.offline_guard = offline_guard
         self.interaction_observer = interaction_observer
         self.interaction_publisher = interaction_publisher
         self.interaction_context = None
@@ -42,6 +43,7 @@ class AutoLink:
         self.load_settings = load_settings
         self.play_intent = play_intent
         self.season_sync = season_sync
+        self.season_phase = season_phase
         self.character_sync = character_sync
         self.scheduler = scheduler
         self.cancel = cancel
@@ -71,7 +73,7 @@ class AutoLink:
         if self.character_sync is not None:
             # Autre zone, peut-être autre foyer : l'état personnage est redemandé au serveur.
             self.character_sync.reset()
-        for sync in (self.home_sync, self.appearance_sync, self.remote_households):
+        for sync in (self.home_sync, self.appearance_sync, self.remote_households, self.offline_guard):
             if sync is not None:
                 sync.reset()
         try:
@@ -102,6 +104,8 @@ class AutoLink:
         try:
             world_id, season = manager.world_season()
             self.season_sync.update(world_id, season)
+            if self.season_phase is not None:
+                self.season_phase.update(season)
         except Exception as error:
             log('season', type(error).__name__)
 
@@ -163,6 +167,26 @@ class AutoLink:
                 allowed[lot] = {str(household)}
         step = self.terrain_sync.flush if flush else self.terrain_sync.tick
         step(manager, True, self.character_sync.character, getattr(manager, 'snapshot', None), allowed)
+
+    def _offline(self, manager, status, loaded):
+        """Sims des joueurs absents : ni appel, ni invitation, ni promenade. Vaut aussi quand nous sommes déconnectés."""
+        guard, households = self.offline_guard, self.remote_households
+        if guard is None or households is None or not loaded:
+            return
+        from .offline_guard import CHECK_TICKS
+        if self.ticks % CHECK_TICKS:
+            return
+        try:
+            online = set()
+            if status.get('authenticated'):
+                players = (getattr(manager, 'snapshot', None) or {}).get('players')
+                if not isinstance(players, list):
+                    # Connectés mais liste pas encore reçue : personne n'est déclaré absent à tort.
+                    return
+                online = {p.get('playerId') for p in players if isinstance(p, dict)}
+            guard.tick(households.adapter.scan(), online)
+        except Exception as error:
+            log('offline_guard', type(error).__name__)
 
     def _remote(self, manager, status, observation):
         """Apparences échangées puis foyers « Nom (S4T) » des autres joueurs, partie liée seulement."""
@@ -295,7 +319,7 @@ class AutoLink:
         presence = self.presence_sync
         diag['presence'] = presence.status() if presence is not None else {'state': 'not_started'}
         for key, sync in (('appearance', self.appearance_sync), ('remoteHouseholds', self.remote_households),
-                          ('remoteMotion', self.remote_motion)):
+                          ('offlineGuard', self.offline_guard), ('remoteMotion', self.remote_motion)):
             diag[key] = sync.status() if sync is not None else {'state': 'not_started'}
         return diag
 
@@ -415,6 +439,7 @@ class AutoLink:
                 self._season(manager)
             self._home(manager, status, observation.get('loaded'))
             self._remote(manager, status, observation)
+            self._offline(manager, status, observation.get('loaded'))
             self._presence(manager, status, observation.get('loaded'))
             try:
                 self._terrain(manager, status, observation.get('loaded'))

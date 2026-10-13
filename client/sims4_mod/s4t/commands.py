@@ -37,6 +37,7 @@ def auto_link():
         from .config import ConfigStore
         from .play_intent import PlayIntentRunner
         from .season_sync import SeasonSync
+        from .season_phase import SeasonPhaseSync
         from .character_sync import CharacterSync
         from .presence_sync import PresenceSync
         from .home_lots import HomeLotSync
@@ -63,13 +64,14 @@ def auto_link():
             applier = game_applier(reader)
             sync = TerrainSync(reader.locate, reader.read, applier.apply)
             return sync, game_events(sync.mark_dirty)
+        from .offline_guard import OfflineGuard
         _auto = AutoLink(runtime, lambda: ConfigStore().settings(), play_intent=PlayIntentRunner(ConfigStore()),
                          season_sync=SeasonSync(ConfigStore()), character_sync=CharacterSync(ConfigStore()),
                          presence_sync=presence, home_sync=HomeLotSync(),
                          appearance_sync=appearance, remote_households=households,
                          remote_motion=motion, interaction_observer=interactions,
                          interaction_publisher=InteractionPublisher(peer_streams=lambda: dict(motion.streams)),
-                         terrain_factory=terrain_factory)
+                         terrain_factory=terrain_factory, offline_guard=OfflineGuard(), season_phase=SeasonPhaseSync())
     return _auto
 
 
@@ -116,6 +118,12 @@ def execute(action, *args):
                 value['missing_module'] = missing_module(error)
                 log('missing_module', value['missing_module'].replace('.', '_'))
         return value
+    if action == 'native':
+        # Lecture seule : noms des attributs des modules natifs, écrits dans le dossier des journaux. Aucun appel.
+        from . import native_probe
+        found = native_probe.inspect()
+        native_probe.write(found)
+        return native_probe.summary(found)
     if action in ('menu', 'configure'):
         from .native_ui import connection_form
         settings = {'endpoint': '', 'name': 'Joueur Sims'}
@@ -178,6 +186,10 @@ def execute(action, *args):
         return {'server': state.get('status') if isinstance(state, dict) else None,
                 'serverSeason': chosen_season(state), 'gameSeason': current,
                 'packAvailable': current is not None, 'connection': manager.status()}
+    if action == 'queue':
+        from .queue_diag import game_read
+        guard = _auto.offline_guard if _auto is not None else None
+        return {'queue': game_read(), 'offlineGuard': guard.status() if guard is not None else None}
     if action == 'character':
         return _character_status(manager)
     if action == 'terrain':
@@ -303,6 +315,10 @@ else:
     def season(_connection=None):
         _output('season', _connection)
 
+    @game_commands.Command('s4t.queue', command_type=game_commands.CommandType.Live)
+    def queue(_connection=None):
+        _output('queue', _connection)
+
     @game_commands.Command('s4t.interactions', command_type=game_commands.CommandType.Live)
     def interactions(_connection=None):
         _output('interactions', _connection)
@@ -310,6 +326,10 @@ else:
     @game_commands.Command('s4t.terrain', command_type=game_commands.CommandType.Live)
     def terrain(_connection=None):
         _output('terrain', _connection)
+
+    @game_commands.Command('s4t.native', command_type=game_commands.CommandType.Live)
+    def native(_connection=None):
+        _output('native', _connection)
 
     @game_commands.Command('s4t.character', command_type=game_commands.CommandType.Live)
     def character(_connection=None):

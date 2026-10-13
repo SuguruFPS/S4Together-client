@@ -137,6 +137,12 @@ class GameAdapter:
                 unique = len(set(ids)) == len(ids)
                 return ids if ids and None not in ids and unique and len(ids) <= MAX_SIMS else None
             result['simIds'] = self._read(missing, 'simIds', members)
+            # Les animaux nouvellement adoptés restent locaux ; ils ne remplacent pas le Sim lié au serveur.
+            def pets():
+                return [_native(info.sim_id) for info in household.sim_info_gen() if getattr(info, 'is_pet', None) is True]
+            pet_ids = self._read(missing, 'petSimIds', pets)
+            if pet_ids:
+                result['petSimIds'] = pet_ids
         result['activeSimId'] = self._read(missing, 'activeSimId', lambda: _native(services.active_sim_info().sim_id))
         result['unavailable'] = missing
         return result

@@ -157,7 +157,7 @@ class PresenceSync:
             self.state = 'idle'
         if self.state == 'joined' and key == self.key:
             return self._publish(manager)
-        return self._join(manager, identity, key)
+        return self._join(manager, identity, key, character)
 
     def _age(self, manager):
         self.waiting[2] += 1
@@ -196,10 +196,13 @@ class PresenceSync:
         if not isinstance(binding, dict) or binding.get('gameHouseholdId') != identity['nativeHouseholdId']:
             return 'household_mismatch'
         bound = binding.get('simIds')
-        if isinstance(bound, list) and set(bound) != set(sims):
+        pets = identity.get('petSimIds', [])
+        valid_pets = (isinstance(pets, list) and all(_native(p) for p in pets)
+                      and len(set(pets)) == len(pets) and set(pets).issubset(sims))
+        if isinstance(bound, list) and (not set(bound).issubset(sims) or not valid_pets or not (set(sims) - set(bound)).issubset(pets)):
             # Naissance, emménagement, départ : pas de mise à jour silencieuse du binding.
             return 'members_changed'
-        if identity['activeSimId'] not in sims:
+        if identity['activeSimId'] not in sims or isinstance(bound, list) and identity['activeSimId'] not in bound:
             return 'active_sim_outside_household'
         return None
 
@@ -225,9 +228,11 @@ class PresenceSync:
         self.waiting = [request_id, kind, 0]
         return kind
 
-    def _join(self, manager, identity, key):
+    def _join(self, manager, identity, key, character):
+        bound = character['binding'].get('simIds', identity['simIds'])
+        members = [sim for sim in identity['simIds'] if sim in bound]
         payload = {'saveId': identity['saveId'], 'nativeHouseholdId': identity['nativeHouseholdId'],
-                   'activeSimId': identity['activeSimId'], 'simIds': list(identity['simIds']),
+                   'activeSimId': identity['activeSimId'], 'simIds': list(members),
                    'worldId': identity['worldId'], 'lotId': identity['lotId']}
         if 'homeLotId' in identity:
             payload['homeLotId'] = identity['homeLotId']

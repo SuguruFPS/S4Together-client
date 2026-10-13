@@ -64,13 +64,18 @@ def game_household():
     if household is None:
         return None
     household_id = _native(services.active_household_id())
-    sim_ids = [s for s in (_native(info.sim_id) for info in household.sim_info_gen()) if s]
+    infos = list(household.sim_info_gen())
+    sim_ids = [s for s in (_native(info.sim_id) for info in infos) if s]
     if household_id is None or not sim_ids:
         return None
     world = household.get_home_world_id()
-    return {'householdId': household_id, 'simIds': sim_ids[:8], 'funds': household.funds.money,
+    observed = {'householdId': household_id, 'simIds': sim_ids[:8], 'funds': household.funds.money,
             'homeLotId': _native(household.home_zone_id), 'gameWorld': _native(world),
             'saveSlotId': _save_slot_id(services)}
+    pets = [_native(info.sim_id) for info in infos if getattr(info, 'is_pet', None) is True]
+    if pets and all(pets):
+        observed['petSimIds'] = pets
+    return observed
 
 
 def game_set_funds(target):

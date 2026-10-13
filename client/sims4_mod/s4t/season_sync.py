@@ -1,7 +1,9 @@
-"""Saison initiale commune (#138) appliquée au jeu, une seule fois par monde serveur et par foyer.
+"""Saison commune (#138) : la partie est ramenée sur la saison courante du serveur à chaque écart (13/10/2026).
 
 Le serveur reste l'autorité : le mod n'applique que l'état « chosen » reçu (snapshot ou diffusion
-season.state / season.chosen). Ensuite la saison avance normalement dans la partie du joueur.
+season.state / season.chosen). `current` est la saison courante, qui avance sur l'horloge du serveur ; `season`
+(le choix initial) ne sert que si un ancien serveur n'annonce pas `current`. L'heure du jour et la vitesse restent
+celles de chaque partie : quand le calendrier local change de saison tout seul, il est réaligné au contrôle suivant.
 
 API vérifiée par désassemblage de simulation.zip (1.128) :
 services.season_service() -> getattr(service_manager, 'season_service', None) (None sans EP05) ;
@@ -15,6 +17,9 @@ import re
 from .journal import log
 
 GAME_SEASONS = {'summer': 'SUMMER', 'autumn': 'FALL', 'winter': 'WINTER', 'spring': 'SPRING'}
+# update() est appelé une fois par seconde : délais entre deux lectures après une application ou un échec.
+RETRY_CALLS = 10
+FAILED_CALLS = 300
 _WORLD_ID = re.compile(r'^[A-Za-z0-9_.:-]{1,128}$')
 
 
@@ -23,7 +28,10 @@ def chosen_season(state):
     if not isinstance(state, dict) or state.get('v') != 1 or state.get('status') != 'chosen':
         return None
     season = state.get('season')
-    return season if season in GAME_SEASONS else None
+    if season not in GAME_SEASONS:
+        return None
+    current = state.get('current')
+    return current if current in GAME_SEASONS else season
 
 
 def game_current():
@@ -62,6 +70,8 @@ class SeasonSync:
         self.current = current
         self.apply_season = apply
         self.household = household
+        self.wait = 0
+        self.failed = None
 
     def update(self, world_id, state):
         """Résultat (chaîne) ou None si rien à faire. Jamais d'exception vers la boucle du jeu."""
@@ -71,22 +81,30 @@ class SeasonSync:
         household = self.household()
         if household is None:
             return None
-        key = world_id + '/' + household
-        # Un nouveau choix après réinitialisation admin (autre chosenAt) est appliqué à nouveau.
-        chosen_at = state.get('chosenAt')
-        token = season + '@' + (chosen_at if isinstance(chosen_at, str) else '')
-        if self.store.season_applied(key) == token:
+        if self.wait > 0:
+            self.wait -= 1
             return None
+        key = world_id + '/' + household
         current = self.current()
         if current is None:
-            # Pas de Saisons dans cette partie : on ne marque rien, le pack peut être ajouté plus tard.
+            # Pas de Saisons dans cette partie : relu de temps en temps, le pack peut être ajouté plus tard.
+            self.wait = RETRY_CALLS
             log('season', 'pack_unavailable')
             return 'pack_unavailable'
-        # Marquée avant l'action : un échec ne doit jamais réappliquer la saison en boucle.
-        self.store.mark_season_applied(key, token)
         if current == GAME_SEASONS[season]:
-            log('season', 'already_' + season)
-            return 'already'
+            self.failed = None
+            if self.store.season_applied(key) != season:
+                self.store.mark_season_applied(key, season)
+                log('season', 'already_' + season)
+                return 'already'
+            return None
+        # Écart avec le serveur. Une application qui n'a rien changé n'est pas rejouée à chaque seconde.
+        self.wait = RETRY_CALLS
+        if self.failed == (key, season):
+            self.wait = FAILED_CALLS
         applied = self.apply_season(season)
+        self.failed = (key, season)
+        if applied:
+            self.store.mark_season_applied(key, season)
         log('season', ('applied_' + season) if applied else 'pack_unavailable')
         return 'applied' if applied else 'pack_unavailable'

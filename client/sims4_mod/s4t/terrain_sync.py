@@ -1,8 +1,8 @@
 """Transport des terrains : publication du nôtre, réception de ceux des autres (13/10/2026).
 
-Contrat proposé dans docs/TERRAIN_SYNC_HANDOFF.md (terrain.publish paginé, terrain.updated, terrain.get) ; le
-serveur ne l'implémente pas encore. Machine à états pure : le jeu n'est atteint que par `locate` et `read`
-(lecture seule, terrain_adapter) et par `apply`, absent par défaut. Sans applicateur, un snapshot reçu et validé
+Contrat de docs/TERRAIN_SYNC_0.1.32.md (terrain.publish paginé, terrain.updated, terrain.get, terrain.catalog),
+implémenté par le serveur. Machine à états pure : le jeu n'est atteint que par `locate` et `read`
+(lecture seule, terrain_adapter) et par `apply` (terrain_apply). Sans applicateur, un snapshot reçu et validé
 reste à l'état « ready » : rien n'est écrit dans la partie. Murs, sols, toits et relief ne sont pas transportés.
 NOT_TESTED_GAME, aucune latence mesurée.
 """
@@ -395,19 +395,25 @@ class TerrainSync:
             return
         lot_id = local.get('lotId')
         entry = self.remote.get(lot_id)
-        if entry is None or lot_id == own or entry['applied'] or entry['blocked'] is not None:
+        if entry is None or lot_id == own or entry['applied'] or entry['blocked'] not in (None, 'ownership', 'local_read'):
             return
         expected = allowed.get(lot_id) if isinstance(allowed, dict) else None
         if expected is None or local.get('ownerHouseholdId') not in expected:
             # Foyer propriétaire local inattendu : aucun setter natif sur le terrain d'un tiers.
+            if entry['blocked'] != 'ownership':
+                self._reject('ownership')
             entry['blocked'] = 'ownership'
-            self._reject('ownership')
             return
+        unread = entry['blocked'] == 'local_read'
+        entry['blocked'] = None  # Le foyer S4T peut être apparu après la réception du relevé.
         try:
             content = self.read()
-            if not isinstance(content, dict) or 'error' in content:
-                return
-            if content.get('blocksReadable') is not True or content.get('skipped') != 0:
+            if (not isinstance(content, dict) or 'error' in content or content.get('blocksReadable') is not True
+                    or content.get('skipped') != 0):
+                # Terrain local illisible ou lu en partie : rien n'est écrit, nouvel essai au relevé suivant.
+                if not unread:
+                    self._reject('local_read')
+                entry['blocked'] = 'local_read'
                 return
             done = self.apply(local.get('zoneId'), terrain.plan(content['objects'], entry['snapshot']['objects']))
         except Exception as error:

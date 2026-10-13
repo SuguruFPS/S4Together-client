@@ -328,3 +328,21 @@ Requête authentifiée `content.compatibility` avec payload exact `{lotId:string
 ## Manifestes DLC persistants (candidat serveur0.1.27)
 
 Migration additive du document monde SchemaVersion1 : playerContent, dictionnaire privé indexé par playerId existant, au plus256 entrées. Valeur {packs:[codesDLC canoniques triés distincts,max256],hash:SHA256 hex64 minuscule du UTF8 de codes joints par newline,revision:entier>=1,observedAt:dateUTC,gameVersion:null}. Packs viennent du HELLO accepté et validé ; aucune version de jeu inventée, aucune copie de fichiers. Même contenu garde la révision, changement la fait progresser. Métadonnées enregistrées atomiquement avec la session avant ACK ; absent dans anciens documents devient vide, null/refs/hash/listes invalides font refuser le document commecorrompu. Métadonnées non exposées dans health ni snapshotpublic. Elles sont informatives : droits de visite restent calculés sur DLC de la session active, jamais sur le dernier manifeste horsligne. Une reconnexion avecmoins de DLC invalide les anciennes capacités immédiatement. Refs objets/dépendanceszones restent gérées par build/lot revisions ; cache des décisions de compatibilité et observation fiable de gameVersion restent à implémenter et tester, cette étape ne prouve aucuncomportement natif.
+
+## Saison courante commune (13/10/2026, serveur non déployé)
+
+Additif : un client qui ignore ces champs continue de fonctionner. L'objet `season` d'un état `chosen` gagne trois champs, `current` (saison courante commune), `period` (nombre de saisons écoulées depuis `chosenAt`) et `durationMinutes`. `season` reste le choix initial. `current` avance dans l'ordre spring, summer, autumn, winter sur l'horloge du serveur, toutes les `SeasonDurationMinutes` minutes réelles (réglage serveur, 168 par défaut, 1 à 525600), que des joueurs soient connectés ou non. À chaque changement, le serveur diffuse `season.state` avec le nouvel objet. Le mod aligne la partie sur `current` à chaque écart, ou sur `season` si le serveur n'envoie pas `current` ; l'heure du jour et la vitesse restent propres à chaque partie. Rien de plus n'est persisté : `current` est calculé à partir de `chosenAt`.
+# Avancement de la saison commune (candidat 0.1.34)
+
+Le snapshot `season` choisi et les événements `season.state` / `season.chosen` ajoutent
+`progressPermille` (entier 0–999), `seasonDays` (7) et `dayIndex` (entier 0–6).
+Ils sont calculés depuis `chosenAt`, l'horloge UTC du serveur et `durationMinutes` :
+fraction du cycle courant, jamais depuis le calendrier d'un client. `period` reste
+le nombre de saisons écoulées. Une diffusion d'avancement est bornée à une toutes
+les 10 secondes ; les changements de saison sont immédiats. Aucun changement
+de séquence persistée ni d'écriture DB pour ce simple passage du temps.
+Le client applique la phase uniquement dans le foyer multijoueur effectivement lié.
+L'heure locale, la vitesse, l'âge des Sims, les besoins et les fonds restent indépendants.
+Un serveur ancien sans ces champs garde l'application de la saison seule.
+Les clients anciens ignorent ces champs additionnels. Application native : NOT_TESTED_GAME.
+

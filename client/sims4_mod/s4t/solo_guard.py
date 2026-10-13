@@ -101,7 +101,14 @@ def exact_resume(character, observed):
     if not isinstance(household, str) or not _NATIVE.match(household) or observed.get('householdId') != household:
         return False
     bound, seen = _sim_set(binding.get('simIds')), _sim_set(observed.get('simIds'))
-    return bound is not None and bound == seen
+    if bound is None or seen is None or not bound.issubset(seen):
+        return False
+    if bound == seen:
+        return True
+    # Une adoption de chat/chien/cheval ne change pas l'identité des joueurs.
+    # Seuls les nouveaux membres explicitement identifiés animaux par le jeu sont tolérés.
+    pets = _sim_set(observed.get('petSimIds'))
+    return pets is not None and pets.issubset(seen) and (seen - bound).issubset(pets)
 
 
 def chosen_save(guard, observed):

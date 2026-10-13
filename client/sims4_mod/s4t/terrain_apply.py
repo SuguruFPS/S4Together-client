@@ -14,6 +14,9 @@ GameObject.set_household_owner_id(new_owner_id) ; BaseObject.destroy(self, sourc
 services.active_household_id(), services.current_zone(), Zone.id, Zone.lot.zone_owner_household_id,
 services.object_manager().valid_objects().
 
+Une définition absente chez ce joueur (create_object rend None) est ignorée : le reste du terrain est appliqué.
+Toute autre erreur de création ou de pose annule le plan sans rien retirer.
+
 Limites prouvées : murs, sols, toits, relief et papiers peints sont un blob natif sans setter Python, ils ne sont
 pas reproduits ; un objet posé sur un autre (parented = 1) n'est pas recréé, son emplacement de slot n'étant pas
 transporté. NOT_TESTED_GAME.
@@ -90,13 +93,18 @@ class TerrainApplier:
             log('terrain_apply', 'too_large')
             return False
         targets = self._targets(plan['remove'])
-        made, skipped = [], 0
+        made, skipped, missing = [], 0, 0
         for row in plan['create']:
             if row[7] == 1:
                 skipped += 1
                 continue
             item = self._create(row, zone_id, owner)
-            if not item:
+            if item is None:
+                # Pack ou contenu absent chez ce joueur : cet objet manque, le reste du terrain est appliqué.
+                skipped += 1
+                missing += 1
+                continue
+            if item is False:
                 self._destroy(made)  # Aucun meuble existant retiré avant réussite des remplacements.
                 self.last = {'created': 0, 'removed': 0, 'skipped': skipped + 1}
                 return False
@@ -106,7 +114,7 @@ class TerrainApplier:
             return False
         removed = self._destroy(targets)
         self.last = {'created': len(made), 'removed': removed, 'skipped': skipped}
-        log('terrain_apply', 'created:%d removed:%d skipped:%d' % (len(made), removed, skipped))
+        log('terrain_apply', 'created:%d removed:%d skipped:%d missing:%d' % (len(made), removed, skipped, missing))
         return True
 
     def _targets(self, rows):
@@ -138,11 +146,12 @@ class TerrainApplier:
         return removed
 
     def _create(self, row, zone_id, owner):
+        """Objet posé, None si la définition n'existe pas chez ce joueur, False pour toute autre erreur."""
         item = None
         try:
             item = self.create(int(row[0]))
             if item is None:
-                return False
+                return None
             self.place(item, int(zone_id), row)
             item.set_household_owner_id(owner)
             return item
