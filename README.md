@@ -4,7 +4,7 @@ Sources publiques du launcher Windows et du mod Sims 4 de S4Together, projet mul
 Le serveur n'est pas inclus.
 
 Sources actuelles : **client0.1.31**, transport des grands instantanés corrigé.
-La release GitHub reste **v0.1.27** : le candidat0.1.31 n'a pas encore été publié comme release.
+La dernière release GitHub est **v0.1.30**, publiée le13/10/2026 avec ZIP et SHA256 vérifiés. Le candidat0.1.31 n'a pas encore été publié comme release.
 La mise à jour automatique suit les releases publiées, pas les commits de cette branche.
 
 **Télécharger :** [dernière release](https://github.com/SuguruFPS/S4Together-client/releases/latest) →
