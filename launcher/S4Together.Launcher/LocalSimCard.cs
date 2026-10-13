@@ -12,6 +12,7 @@ public sealed class LocalSimCard(LocalSim? data) : INotifyPropertyChanged
     public string Name => Data?.Name ?? "Nouveau personnage";
     public string Household => Data?.Household ?? "Créer un Sim dans Les Sims 4";
     public string SaveName => Data?.SaveName ?? "";
+    public string SourceLabel => Data?.Source == "Bibliothèque locale" ? "Ma bibliothèque" : "Sauvegarde locale";
     public DateTime SavedAtUtc => Data?.SavedAtUtc ?? DateTime.MinValue;
     ImageSource? portrait;
     public ImageSource? Portrait { get => portrait; set { portrait = value; PropertyChanged?.Invoke(this, new(nameof(Portrait))); } }

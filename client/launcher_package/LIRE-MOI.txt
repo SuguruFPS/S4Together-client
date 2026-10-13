@@ -1,4 +1,10 @@
-S4Together 0.1.34-game-test — mod de test, launcher 0.1.34 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.35-game-test — mod de test, launcher 0.1.35 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+CORRECTIF 0.1.35 — PERSONNAGES ET IMAGES
+Les foyers EA précréés et les clones distants S4T ne sont plus proposés comme tes créations personnelles, même s'ils sont marqués joueurs dans un fichier.
+Le portrait EA enregistré avec la partie est maintenant lu avec sa vraie clé, puis affiché sur le foyer actif et sa carte multijoueur liée. Une image peut représenter toute la famille. Les portraits de Ma bibliothèque restent pris en charge.
+Si un foyer n'a aucune image disponible, ouvre ce foyer dans Les Sims 4, enregistre, puis actualise Personnages. Un personnage serveur pas encore créé dans le jeu n'a pas encore de portrait.
+Le serveur reste en 0.1.31 ; aucun changement réseau ou gameplay dans ce correctif.
 
 CORRECTIF 0.1.34
 Les foyers précréés non joués ne sont plus pris pour tes Sims. Une adoption de chat, chien ou cheval dans le foyer multijoueur ne bloque plus le Sim déjà lié : les animaux supplémentaires restent locaux.

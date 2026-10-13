@@ -3,7 +3,7 @@
 Sources publiques du launcher Windows et du mod Sims 4 de S4Together, projet multijoueur expérimental.
 Le serveur n'est pas inclus.
 
-Sources actuelles : **client 0.1.34**, filtre des foyers précréés, reprise malgré adoption d'un animal, jour de saison commun et sonde native en lecture seule.
+Sources actuelles : **client 0.1.35**, exclusion des foyers EA/Maxis et clones distants, vraies images du foyer actif issues des sauvegardes et libellés de source corrigés. Les correctifs de reprise, jour de saison et sonde native0.1.34 sont conservés.
 La version téléchargeable est celle de releases/latest. Le rendu mutuel, le jour natif et la latence <5 s restent à vérifier dans deux vrais jeux. Murs, sols, toits et relief non synchronisés.
 La mise à jour automatique suit les releases publiées, pas les commits de cette branche.
 

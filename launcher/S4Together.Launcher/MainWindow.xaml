@@ -158,7 +158,7 @@
                       </Border>
                       <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" MaxHeight="40"/>
                       <TextBlock Text="{Binding Household}" Style="{StaticResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis" MaxHeight="36" Margin="0,3,0,8"/>
-                      <TextBlock x:Name="LocalCardSource" Text="Sauvegarde locale" Foreground="{StaticResource Accent}" FontSize="11"/>
+                      <TextBlock x:Name="LocalCardSource" Text="{Binding SourceLabel}" Foreground="{StaticResource Accent}" FontSize="11"/>
                     </StackPanel>
                     <DataTemplate.Triggers>
                       <DataTrigger Binding="{Binding IsNew}" Value="True">

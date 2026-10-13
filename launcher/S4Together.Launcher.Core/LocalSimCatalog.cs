@@ -86,6 +86,8 @@ public static class LocalSimCatalog
         {
             var sim = Proto.Read(data); var homeId = sim.Number(4);
             if (!homes.TryGetValue(homeId, out var home) || home.Number(26) == 1) continue;
+            // L'origine EA prime sur les drapeaux de jeu : ils ne signifient pas « créé par ce joueur ».
+            if (home.Number(29) != 0 || home.Number(32) != 0 || IsRemoteHousehold(home.Text(18))) continue;
             // HouseholdData : 31=is_player, 14=is_unplayed. Le champ 9 indique seulement
             // le Sim à sélectionner dans ce foyer, y compris les foyers précréés du jeu.
             // Son existence ne prouve donc jamais que l'utilisateur a joué ce foyer.
@@ -115,7 +117,10 @@ public static class LocalSimCatalog
         var meta = Proto.Read(payload);
         if (!meta.Has(2)) throw new InvalidDataException("Type de bibliothèque absent.");
         if (meta.Number(2) != 2) return []; // Les terrains et pièces ne sont pas des Sims.
-        var household = Proto.Read(Proto.Read(meta.Bytes(10)).Bytes(2));
+        var specific = Proto.Read(meta.Bytes(10));
+        // Ne pas présenter les modèles Maxis, caches masqués ou téléchargements incomplets comme créations locales.
+        if (specific.Number(3) != 0 || specific.Number(4) != 0 || specific.Number(11) != 0) return [];
+        var household = Proto.Read(specific.Bytes(2));
         var result = new List<LocalSim>();
         foreach (var item in household.Messages(2))
         {
@@ -127,6 +132,13 @@ public static class LocalSimCatalog
     }
 
     static string Name(string first, string last) => (first + " " + last).Trim();
+
+    static bool IsRemoteHousehold(string description)
+    {
+        var parts = description.Split(':');
+        return parts is ["S4T", var owner, var hash] && Guid.TryParseExact(owner, "D", out _) &&
+            (hash == "PENDING" || hash.Length == 16 && hash.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f'));
+    }
 
     public static byte[] ReadThumbnail(LocalSim sim)
     {
@@ -145,7 +157,15 @@ public static class LocalSimCatalog
         if (Path.GetExtension(sim.FilePath).Equals(".save", StringComparison.OrdinalIgnoreCase))
         {
             var image = ReadSaveResource(sim.FilePath, 0x14, sim.HouseholdId);
-            return ImagePayload(image);
+            var portrait = ImagePayload(image);
+            if (portrait.Length > 0) return portrait;
+            // Les saves EA actuelles stockent l'image du foyer actif sous l'instance zéro.
+            // Revalider le foyer du fichier : jamais utiliser l'image d'un autre foyer de cette partie.
+            if (!sim.IsActiveHousehold || sim.HouseholdId == 0) return [];
+            var metadata = Proto.Read(ReadSaveResource(sim.FilePath));
+            var slot = Proto.Read(metadata.Bytes(2));
+            if (slot.Number(11) != sim.HouseholdId) return [];
+            return ImagePayload(ReadSaveResource(sim.FilePath, 0x14, 0));
         }
         var directory = Path.GetDirectoryName(sim.FilePath)!;
         var id = Path.GetFileNameWithoutExtension(sim.FilePath).Split('!').Last();
