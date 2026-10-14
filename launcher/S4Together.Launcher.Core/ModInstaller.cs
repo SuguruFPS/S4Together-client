@@ -127,6 +127,53 @@ public sealed class ModInstaller(string backupRoot, Func<bool>? gameRunning = nu
         return old.Count > 0 ? backup : "";
     }
 
+    /// <summary>Mise à jour automatique d'une seule copie suivie et intacte, avec remplacement atomique.</summary>
+    public bool UpdateManaged(string mods, ModPackage package)
+    {
+        Guard(mods);
+        var root=Root(mods);var target=Path.Combine(root,TargetFolder,ScriptName);
+        var manifest=Path.Combine(root,TargetFolder,ManifestName);
+        if(!File.Exists(target)||!File.Exists(manifest)||State(mods,package.Sha256)!=InstallState.OldVersion)return false;
+        RefuseRedirected(root,target);RefuseRedirected(root,manifest);
+        using(var installed=JsonDocument.Parse(File.ReadAllText(manifest)))
+        {
+            if(!installed.RootElement.TryGetProperty("version",out var stored)||stored.ValueKind!=JsonValueKind.String)return false;
+            var installedVersion=stored.GetString()?.Split('-')[0];
+            if(!Version.TryParse(installedVersion,out var previous)||!Version.TryParse(package.Version.Split('-')[0],out var next)||next<previous)return false;
+        }
+        if(FileHash(package.ScriptPath)!=package.Sha256)throw new InstallRefusedException("Le mod fourni est altéré : ancienne version conservée.");
+        var backup=Path.Combine(backupRoot,"auto-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(backup);
+        var saved=Path.Combine(backup,ScriptName);var savedManifest=Path.Combine(backup,ManifestName);
+        File.Copy(target,saved);File.Copy(manifest,savedManifest);
+        var pending=target+".new-"+Guid.NewGuid().ToString("N");var pendingManifest=manifest+".new-"+Guid.NewGuid().ToString("N");
+        var replaced=false;
+        try
+        {
+            File.Copy(package.ScriptPath,pending);
+            if(FileHash(pending)!=package.Sha256)throw new InstallRefusedException("Copie du mod altérée : ancienne version conservée.");
+            File.WriteAllText(pendingManifest,JsonSerializer.Serialize(new{version=package.Version,sha256=package.Sha256,file=ScriptName}));
+            Guard(mods);
+            if(FileHash(target)!=FileHash(saved))throw new InstallRefusedException("Le mod a changé pendant sa mise à jour.");
+            File.Replace(pending,target,null);replaced=true;
+            File.Move(pendingManifest,manifest,true);
+            return true;
+        }
+        catch
+        {
+            if(replaced)
+            {
+                File.Copy(saved,pending,true);File.Replace(pending,target,null);
+                File.Copy(savedManifest,manifest,true);
+            }
+            throw;
+        }
+        finally
+        {
+            if(File.Exists(pending))File.Delete(pending);
+            if(File.Exists(pendingManifest))File.Delete(pendingManifest);
+        }
+    }
+
     /// <summary>Retire uniquement une copie reconnue (à jour ou ancienne version suivie). Un fichier modifié à la main est refusé.</summary>
     public void Uninstall(string mods, string expectedSha)
     {

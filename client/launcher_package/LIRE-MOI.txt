@@ -1,4 +1,7 @@
-S4Together 0.1.38-game-test — mod de test, launcher 0.1.38 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.39-game-test — mod de test, launcher 0.1.39 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+MISE À JOUR AUTOMATIQUE 0.1.39
+Au lancement, le launcher vérifie la dernière release. Après installation réussie : une seule relance et mise à jour automatique du mod S4Together déjà installé et suivi, avec sauvegarde, jeu fermé. Les fichiers modifiés manuellement et les autres mods restent préservés. Après un échec, ancienne version conservée et nouvelle tentative au prochain lancement manuel ; aucun faux message « à jour » pendant le retour arrière.
 
 GARDE DES CLONES 0.1.38 — PREMIÈRE ÉTAPE
 Les clones des joueurs restent exclus des filtres sociaux en ligne comme hors ligne. Le veto des appels/invitations utilisant BaseDramaNode.run reconnaît le marqueur S4T avant le premier tick. Les vrais PNJ restent inchangés ; aucun renvoi au domicile des proxies en ligne par cette garde. Protection des autres voies natives et dialogues déjà affichés encore à vérifier ; aucune protection universelle ni système complet d'invitations de festival annoncé. NOT_TESTED_GAME.

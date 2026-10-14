@@ -3,7 +3,7 @@
 Sources publiques du launcher Windows et du mod Sims 4 de S4Together, projet multijoueur expérimental.
 Le serveur n'est pas inclus.
 
-Sources actuelles : **client 0.1.38**, première garde sociale des proxies joueur en ligne et hors ligne, avec veto des expéditeurs S4T avant le premier tick. Diagnostic automatique sans commande conservé. Les voies natives alternatives et les dialogues déjà affichés restent à couvrir ; protection complète des invitations et rendu bilatéral non validés.
+Sources actuelles : **client 0.1.39**, correction du retour à l’ancienne version après mise à jour : confirmation de démarrage atomique, compatible avec le helper0.1.35. Le mod suivi intact est actualisé automatiquement, jeu fermé avec sauvegarde.89tests launcher et véritables remplacements WPF avec helpers35 et39 PASS. Installation sur PC distant encore à confirmer.
 La version téléchargeable est celle de releases/latest. Le rendu mutuel, le jour natif et la latence <5 s restent à vérifier dans deux vrais jeux. Murs, sols, toits et relief non synchronisés.
 La mise à jour automatique suit les releases publiées, pas les commits de cette branche.
 

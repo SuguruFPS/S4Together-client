@@ -10,7 +10,7 @@
     <AssemblyName>S4Together</AssemblyName>
     <RootNamespace>S4Together.Launcher</RootNamespace>
     <Product>S4Together Launcher</Product>
-    <Version>0.1.38</Version>
+    <Version>0.1.39</Version>
     <!-- Le ZIP distribue un seul exe : les DLL natives WPF doivent être incluses aussi. -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <ApplicationManifest>app.manifest</ApplicationManifest>

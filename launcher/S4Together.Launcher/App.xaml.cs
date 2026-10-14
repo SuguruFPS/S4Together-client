@@ -17,7 +17,10 @@ public partial class App : Application
     {
         void Trace(string step) { try { Directory.CreateDirectory(Core.LauncherSettings.DefaultFolder); File.AppendAllText(Path.Combine(Core.LauncherSettings.DefaultFolder, "launcher-demarrage.log"), $"{DateTime.UtcNow:O} {step}{Environment.NewLine}"); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
         Trace("startup");
-        single = new Mutex(true, @"Local\S4Together.Launcher", out var first);
+        var mutexName = @"Local\S4Together.Launcher";
+        if(LauncherSettings.StartupTestFolder is {} testFolder)
+            mutexName += ".Test." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(testFolder)))[..16];
+        single = new Mutex(true, mutexName, out var first);
         if (!first)
         {
             MessageBox.Show("Le launcher S4Together est déjà ouvert (voir la zone de notification).", "S4Together", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -32,10 +35,13 @@ public partial class App : Application
         if (e.Args.Contains("--startup-smoke-test"))
         {
             // Le démarrage WPF normal crée la fenêtre ; vérifier après son premier rendu.
-            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(() =>
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(async () =>
             {
                 if (MainWindow is not { IsLoaded: true, IsVisible: true }) { Trace("STARTUP_WINDOW_MISSING"); Environment.Exit(2); }
+                try { SignalVerifiedStartup(e.Args); }
+                catch { Trace("STARTUP_VERIFY_FAILED"); Environment.Exit(3); }
                 Trace("STARTUP_RENDERED");
+                if(e.Args.Contains("--update-verify"))await Task.Delay(3000);
                 Environment.Exit(0);
             }));
         }
@@ -46,7 +52,10 @@ public partial class App : Application
                 {
                     try { SignalVerifiedStartup(e.Args); }
                     catch (Exception error) { Crash(error); return; }
-                    await CheckUpdateAsync();
+                    // Une seule installation par lancement ; le processus remplacé confirme puis met le mod à jour.
+                    if(e.Args.Contains("--update-verify") && MainWindow is MainWindow updatedWindow)
+                        updatedWindow.UpdateManagedModAtStartup();
+                    else await CheckUpdateAsync(e.Args.Contains("--update-rollback"));
                 }));
     }
 
@@ -69,13 +78,18 @@ public partial class App : Application
         for (var directory = parent; directory is not null; directory = directory.Parent)
             if ((directory.Attributes & FileAttributes.ReparsePoint) != 0)
                 throw new InvalidDataException("Lien dans le chemin de confirmation refusé.");
-        using var file = new FileStream(marker, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        var bytes = Encoding.UTF8.GetBytes(nonce);
-        file.Write(bytes);
-        file.Flush(true);
+        // Les anciens helpers lisent dès l'apparition du nom final : publier seulement après fermeture.
+        var pending=marker+".pending-"+nonce;
+        try
+        {
+            using(var file=new FileStream(pending,FileMode.CreateNew,FileAccess.Write,FileShare.None))
+            { var bytes=Encoding.UTF8.GetBytes(nonce);file.Write(bytes);file.Flush(true); }
+            File.Move(pending,marker);
+        }
+        finally { if(File.Exists(pending))File.Delete(pending); }
     }
 
-    async Task CheckUpdateAsync()
+    async Task CheckUpdateAsync(bool afterRollback = false)
     {
         if (MainWindow is not MainWindow window) return;
         window.IsEnabled = false;
@@ -85,8 +99,8 @@ public partial class App : Application
             using var updater = new LauncherUpdater();
             using var checkTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
             var version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
-            var release = await updater.CheckAsync(version, checkTimeout.Token);
-            if (release is null) { window.StatusBar.Text = "Launcher à jour."; return; }
+            var release = await updater.CheckAsync(version, checkTimeout.Token, afterRollback);
+            if (release is null) { window.UpdateManagedModAtStartup(); return; }
             if (GameLocator.IsGameRunning())
             {
                 window.StatusBar.Text = "Mise à jour disponible. Ferme Les Sims 4 puis relance le launcher pour l'installer.";
@@ -104,7 +118,10 @@ public partial class App : Application
                                      or OperationCanceledException or InvalidOperationException or System.ComponentModel.Win32Exception)
         {
             // Une panne du service de mise à jour ne bloque jamais le launcher installé.
-            window.StatusBar.Text = "Mise à jour indisponible. Tu peux utiliser le launcher installé.";
+            window.UpdateManagedModAtStartup();
+            if (error is IOException && error.Message.StartsWith("La mise à jour", StringComparison.Ordinal))
+                window.StatusBar.Text = error.Message;
+            else window.StatusBar.Text = "Mise à jour indisponible. Tu peux utiliser le launcher installé.";
         }
         finally { window.IsEnabled = true; }
     }

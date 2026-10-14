@@ -22,7 +22,7 @@ public sealed class LauncherUpdater : IDisposable
         client.DefaultRequestHeaders.UserAgent.ParseAdd("S4Together-Launcher/1.0");
         this.stagingRoot = Path.GetFullPath(stagingRoot ?? Path.Combine(LauncherSettings.DefaultFolder, "updates"));
     }
-    public async Task<LauncherRelease?> CheckAsync(Version currentVersion, CancellationToken cancel = default)
+    public async Task<LauncherRelease?> CheckAsync(Version currentVersion, CancellationToken cancel = default, bool afterRollback = false)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel); deadline.CancelAfter(TimeSpan.FromSeconds(10));
         using var response = await GetAsync(new Uri($"https://api.github.com/repos/{Repository}/releases/latest"), false, deadline.Token);
@@ -31,13 +31,14 @@ public sealed class LauncherUpdater : IDisposable
         using var bytes = new MemoryStream(); await CopyBounded(response, bytes, 524288, deadline.Token);
         using var metadata = JsonDocument.Parse(bytes.ToArray());
         var release = ReadRelease(metadata.RootElement, currentVersion);
-        if (release is not null && File.Exists(Path.Combine(stagingRoot, "failure.json")))
+        if (afterRollback && release is not null && File.Exists(Path.Combine(stagingRoot, "failure.json")))
         {
             try
             {
                 using var failure = JsonDocument.Parse(File.ReadAllText(Path.Combine(stagingRoot, "failure.json")));
                 if (failure.RootElement.GetProperty("version").GetString() == release.Version.ToString(3)
-                    && failure.RootElement.GetProperty("timeUtc").GetDateTimeOffset() > DateTimeOffset.UtcNow.AddHours(-24)) return null;
+                    && failure.RootElement.GetProperty("timeUtc").GetDateTimeOffset() > DateTimeOffset.UtcNow.AddHours(-24))
+                    throw new IOException($"La mise à jour {release.Version.ToString(3)} a échoué et a été annulée. La version installée est conservée ; une nouvelle tentative aura lieu au prochain lancement.");
             }
             catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException or FormatException) { }
         }
@@ -118,7 +119,7 @@ public sealed class LauncherUpdater : IDisposable
             "-ParentId", parentProcessId.ToString(), "-ParentStartTicks", parent.StartTime.ToUniversalTime().Ticks.ToString() }) start.ArgumentList.Add(arg);
         return Process.Start(start) ?? throw new IOException("Le programme de remplacement n'a pas démarré.");
     }
-    const string ReplacementScript = """
+    internal const string ReplacementScript = """
 param([string]$PlanPath,[int]$ParentId,[long]$ParentStartTicks)
 $ErrorActionPreference='Stop'
 $swapped=New-Object 'System.Collections.Generic.List[object]'
@@ -212,8 +213,13 @@ try {
   $rendered=$false
   while([DateTime]::UtcNow -lt $until -and -not $newProcess.HasExited){
     if([System.IO.File]::Exists($plan.marker) -and (Get-Item -LiteralPath $plan.marker).Length -le 128){
-      $rendered=([System.IO.File]::ReadAllText($plan.marker).Trim() -ceq $plan.nonce)
-      if($rendered){break}
+      try {
+        $rendered=([System.IO.File]::ReadAllText($plan.marker).Trim() -ceq $plan.nonce)
+        if($rendered){break}
+      } catch [System.IO.IOException] {
+        # Une confirmation encore ouverte en écriture n'est pas un échec de démarrage.
+        $rendered=$false
+      }
     }
     Start-Sleep -Milliseconds 100
   }
@@ -238,7 +244,7 @@ try {
     if($rollback){[System.IO.Directory]::Delete($backup,$true)}
     @{status=$(if($rollback){'rolled_back'}else{'rollback_failed'});version=$plan.version} | ConvertTo-Json | Set-Content -LiteralPath $plan.result -Encoding UTF8
     @{version=$plan.version;sha256=$plan.zipSha256;timeUtc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath $plan.failure -Encoding UTF8
-    if($rollback -and (Hash $exe) -eq $oldHash){[void](StartLauncher $exe '')}
+    if($rollback -and (Hash $exe) -eq $oldHash){[void](StartLauncher $exe ('--update-rollback '+$plan.version))}
   }
   exit 1
 }

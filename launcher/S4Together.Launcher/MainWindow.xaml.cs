@@ -1074,6 +1074,23 @@ public partial class MainWindow : Window
             && RunModAction(() => installer.Install(ModsFolder, package));
     }
 
+    public void UpdateManagedModAtStartup()
+    {
+        Status("Launcher à jour.");
+        if(package is null||GameLocator.ValidateModsFolder(ModsFolder).Length>0)return;
+        if(GameLocator.IsGameRunning())
+        { if(CurrentModState()!=InstallState.UpToDate)Status("Mod à mettre à jour : ferme Les Sims 4 puis relance le launcher.");return; }
+        try
+        {
+            if(installer.UpdateManaged(ModsFolder,package))
+            { RefreshAll();Status($"Launcher et mod S4Together {package.Version} mis à jour."); }
+            else if(CurrentModState()!=InstallState.UpToDate)
+                Status("Launcher à jour. Le mod nécessite une installation ou une réparation dans Paramètres.");
+        }
+        catch(Exception ex) when(ex is InstallRefusedException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or KeyNotFoundException)
+        { Status("Mise à jour automatique du mod impossible. Version sauvegardée ; consulte Paramètres."); }
+    }
+
     bool EnableScripts() =>
         Confirm("Activer les mods et les mods de script dans Options.ini ?\nUne copie de sauvegarde d'Options.ini est faite avant. Le jeu doit être fermé.")
         && RunModAction(() => installer.EnableScriptMods(ModsFolder));

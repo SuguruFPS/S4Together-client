@@ -37,7 +37,10 @@ public sealed class LauncherSettings
     static readonly byte[] Entropy = Encoding.UTF8.GetBytes("S4Together.Launcher.v2");
     const int MaxFileBytes = 4 * 1024 * 1024; // gardes solo jusqu'à 2 × 1024 identifiants par personnage
 
-    public static string DefaultFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "S4Together", "launcher");
+    public static string DefaultFolder => StartupTestFolder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "S4Together", "launcher");
+    public static string? StartupTestFolder => Environment.GetCommandLineArgs().Contains("--startup-smoke-test")
+        && Environment.GetEnvironmentVariable("S4TOGETHER_STARTUP_TEST_PROFILE") is { Length: > 0 } test && Path.IsPathFullyQualified(test)
+        ? Path.GetFullPath(test) : null;
 
     /// <summary>Fichier absent ou illisible : réglages par défaut (le fichier illisible est conservé à côté).</summary>
     public static LauncherSettings Load(string? folder = null)
