@@ -73,6 +73,9 @@ class AutoLink:
         except (ValueError, OSError) as error:
             log('autoconnect_config', type(error).__name__)
             return False
+        # Même terrain rechargé : la vue native disparaît aussi. Retirer l'ancien join pour
+        # obtenir un nouvel ACK/snapshot, même si save/foyer/lot sont restés identiques.
+        self._leave('zone_reloaded')
         self._forget_motion()
         self._forget_interactions()
         if settings.get('launcher_bridge') is not True:
