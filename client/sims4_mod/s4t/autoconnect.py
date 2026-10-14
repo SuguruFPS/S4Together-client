@@ -345,7 +345,12 @@ class AutoLink:
         if not status.get('authenticated') or presence is None or presence.state != 'joined':
             return
         from . import visibility
-        manager.request('game.visibility.report', visibility.report(self.visibility_diag(manager)))
+        diag = self.visibility_diag(manager)
+        try:
+            visibility.save(diag)
+        except (OSError, TypeError, ValueError) as error:
+            log('visibility_save', type(error).__name__)
+        manager.request('game.visibility.report', visibility.report(diag))
 
     def _leave(self, reason):
         # Rien de déclaré : aucune connexion n'est créée pour un mod resté passif.

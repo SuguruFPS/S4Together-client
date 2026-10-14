@@ -8,6 +8,25 @@ def _n(value):
     return value if isinstance(value, int) else 0
 
 
+def save(diag, root=None):
+    """Diagnostic local automatique, fichier remplacé atomiquement, aucun secret de connexion."""
+    import json
+    import os
+    import time
+    from pathlib import Path
+    root = Path(root) if root is not None else Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'S4Together' / 'logs'
+    root.mkdir(parents=True, exist_ok=True)
+    value = {k: diag.get(k) for k in ('presence', 'appearance', 'remoteHouseholds', 'remoteMotion')}
+    connection = diag.get('connection') or {}
+    value['connection'] = {k: connection[k] for k in ('authenticated', 'state') if k in connection}
+    value['time'] = int(time.time())
+    target = root / 'visibility-last.json'
+    pending = root / 'visibility-last.json.next'
+    pending.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True), encoding='utf-8')
+    pending.replace(target)
+    return target
+
+
 def steps(diag):
     """Étapes dans l'ordre de la chaîne : (réussie, libellé, détail). La première en échec explique le blocage."""
     connection = diag.get('connection') or {}
