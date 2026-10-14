@@ -159,6 +159,15 @@ class PresenceSync:
             return self._publish(manager)
         return self._join(manager, identity, key, character)
 
+    def pump(self, manager, character):
+        """Sous-tick réseau : pose courante seulement, sans accélérer les délais/reprises de la boucle lente."""
+        if self.state != 'joined' or self.waiting is not None or self.pause > 0 or character is None:
+            return None
+        identity = self.read()
+        if self._key(identity) != self.key or self._check(identity, character) is not None:
+            return None
+        return self._publish(manager)  # Cadence monotone et ACK serveur restent obligatoires.
+
     def _age(self, manager):
         self.waiting[2] += 1
         if self.waiting[2] >= ACK_TICKS:

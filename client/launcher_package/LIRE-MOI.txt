@@ -1,4 +1,7 @@
-S4Together 0.1.40-game-test — mod de test, launcher 0.1.40 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.41-game-test — mod de test, launcher 0.1.41 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+REACTIVITE ET OBJETS SUR SUPPORTS 0.1.41
+Reception reseau toutes les250ms; scans/sauvegardes et cadence serveur conserves. Les clones distants non selectionnables ne choisissent plus de nouvelles interactions par FullAutonomy. Les objets poses sur un meuble sont recrees seulement si un emplacement natif vide et compatible est trouve sans ambiguite. Les animations et l’heure du proprietaire ne sont pas encore synchronisees ; diagnostic d’heure automatique pour poursuivre. Rendu et latence entre deux vrais jeux restent a verifier.
 
 RECHARGEMENT DU TERRAIN 0.1.40
 Après chargement du même foyer/terrain, la présence est redéclarée automatiquement pour recevoir une nouvelle scène des Sims distants. Aucun bouton ni commande. Correctif validé hors jeu ; rendu entre deux vrais jeux à confirmer. Les murs, sols et toits des maisons restent non synchronisés.

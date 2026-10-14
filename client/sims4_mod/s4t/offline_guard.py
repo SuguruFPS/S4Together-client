@@ -133,6 +133,21 @@ def veto(is_blocked, original, failure):
     return run
 
 
+def veto_autonomy(original):
+    """Le proxy distant non sélectionnable ne choisit jamais sa propre prochaine interaction autonome."""
+    def test(component, *args, **kwargs):
+        try:
+            info = component.owner.sim_info
+            if (info.is_selectable is False
+                    and parse_description(getattr(info.household, 'description', None)) is not None):
+                return False
+        except (AttributeError, TypeError):
+            pass
+        return original(component, *args, **kwargs)
+    test.s4t_original = original
+    return test
+
+
 class GameOffline:
     """Adaptateur du jeu. Chaque méthode peut lever ; OfflineGuard journalise et continue."""
 
@@ -141,6 +156,13 @@ class GameOffline:
         node = drama_node.BaseDramaNode
         if getattr(node.run, 's4t_original', None) is None:
             node.run = veto(is_blocked, node.run, drama_node.DramaNodeRunOutcome.FAILURE)
+        try:
+            from autonomy.autonomy_component import AutonomyComponent
+            original = AutonomyComponent._test_full_autonomy
+            if getattr(original, 's4t_original', None) is None:
+                AutonomyComponent._test_full_autonomy = veto_autonomy(original)
+        except (ImportError, AttributeError) as error:
+            log('offline_guard', 'autonomy_hook:' + type(error).__name__)
 
     def _reason(self):
         from filters.sim_filter_service import SimFilterGlobalBlacklistReason

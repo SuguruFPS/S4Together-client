@@ -60,11 +60,12 @@ def reduce_plan(plan):
 class TerrainApplier:
     """apply(zone_id, plan) -> True si le terrain local a été rapproché du plan, False si rien n'a été tenté."""
 
-    def __init__(self, services, row_of, create, place, thread_id=None):
+    def __init__(self, services, row_of, create, place, thread_id=None, place_parent=None):
         self.services = services
         self.row_of = row_of
         self.create = create
         self.place = place
+        self.place_parent = place_parent
         self.thread_id = threading.get_ident() if thread_id is None else thread_id
         self.last = None
 
@@ -94,11 +95,11 @@ class TerrainApplier:
             return False
         targets = self._targets(plan['remove'])
         made, skipped, missing = [], 0, 0
-        for row in plan['create']:
-            if row[7] == 1:
+        for row in sorted(plan['create'], key=lambda value: value[7]):
+            if row[7] == 1 and self.place_parent is None:
                 skipped += 1
                 continue
-            item = self._create(row, zone_id, owner)
+            item = self._create(row, zone_id, owner, targets)
             if item is None:
                 # Pack ou contenu absent chez ce joueur : cet objet manque, le reste du terrain est appliqué.
                 skipped += 1
@@ -145,14 +146,19 @@ class TerrainApplier:
                 log('terrain_remove', type(error).__name__)
         return removed
 
-    def _create(self, row, zone_id, owner):
+    def _create(self, row, zone_id, owner, excluded=()):
         """Objet posé, None si la définition n'existe pas chez ce joueur, False pour toute autre erreur."""
         item = None
         try:
             item = self.create(int(row[0]))
             if item is None:
                 return None
-            self.place(item, int(zone_id), row)
+            if row[7] == 1:
+                if not self.place_parent(item, int(zone_id), row, excluded):
+                    item.destroy(source=item, cause=CAUSE)
+                    return None
+            else:
+                self.place(item, int(zone_id), row)
             item.set_household_owner_id(owner)
             return item
         except Exception as error:
@@ -164,6 +170,36 @@ class TerrainApplier:
                 except Exception as cleanup:
                     log('terrain_create', type(cleanup).__name__)
             return False
+
+
+def place_in_slot(services, reader, item, row, excluded=()):
+    """Slot natif unique, vide et compatible à la position reçue ; aucun parent deviné."""
+    slots = []
+    for parent in services.object_manager().valid_objects():
+        if parent is item or any(parent is old for old in excluded):
+            continue
+        if getattr(parent, 'is_sim', True) or not parent.is_on_active_lot():
+            continue
+        if parent.routing_surface.secondary_id != row[5]:
+            continue
+        available = getattr(parent, 'get_runtime_slots_gen', None)
+        if not callable(available):
+            continue
+        for slot in available():
+            position = slot.position
+            if (slot.empty and all(abs(int(round(value * 1000)) - target) <= POSITION_MM
+                                  for value, target in zip((position.x, position.y, position.z), row[1:4]))
+                    and slot.is_valid_for_placement(obj=item)):
+                slots.append(slot)
+                if len(slots) > 1:
+                    return False
+    if len(slots) != 1:
+        return False
+    if row[6] != 1000:
+        item.scale = row[6] / 1000.0
+    slots[0].add_child(item)
+    actual = reader._row(item)
+    return bool(actual and actual[0] == row[0] and actual[5] == row[5] and actual[7] == 1 and _near(actual, row))
 
 
 def game_applier(reader):
@@ -179,4 +215,7 @@ def game_applier(reader):
         if row[6] != 1000:
             item.scale = row[6] / 1000.0
 
-    return TerrainApplier(services, reader._row, create_object, place)
+    def place_parent(item, zone_id, row, excluded):
+        return place_in_slot(services, reader, item, row, excluded)
+
+    return TerrainApplier(services, reader._row, create_object, place, place_parent=place_parent)

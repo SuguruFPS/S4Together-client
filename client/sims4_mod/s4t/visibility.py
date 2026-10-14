@@ -8,6 +8,18 @@ def _n(value):
     return value if isinstance(value, int) else 0
 
 
+def observe_clock():
+    """Lecture seule du temps natif ; aucune avance de timeline ni changement de vitesse."""
+    try:
+        import services
+        clock = services.game_clock_service()
+        now = clock.now()
+        return {'hour': int(now.hour()), 'minute': int(now.minute()), 'day': int(now.day()),
+                'speed': int(clock.clock_speed)}
+    except Exception:
+        return {}
+
+
 def save(diag, root=None):
     """Diagnostic local automatique, fichier remplacé atomiquement, aucun secret de connexion."""
     import json
@@ -16,7 +28,7 @@ def save(diag, root=None):
     from pathlib import Path
     root = Path(root) if root is not None else Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'S4Together' / 'logs'
     root.mkdir(parents=True, exist_ok=True)
-    value = {k: diag.get(k) for k in ('presence', 'appearance', 'remoteHouseholds', 'remoteMotion')}
+    value = {k: diag.get(k) for k in ('presence', 'appearance', 'remoteHouseholds', 'remoteMotion', 'clock', 'terrain')}
     connection = diag.get('connection') or {}
     value['connection'] = {k: connection[k] for k in ('authenticated', 'state') if k in connection}
     value['time'] = int(time.time())
@@ -92,6 +104,11 @@ def report(diag):
         'appearance_remote': len(appearance.get('remote') or []), 'appearance_failed': len(appearance.get('failed') or []),
         'ghosts': len(households.get('ghosts') or {}), 'ghosts_failed': len(households.get('failed') or []),
     }
+    observed = diag.get('clock') or {}
+    for field, maximum in (('hour', 23), ('minute', 59), ('day', 6), ('speed', 3)):
+        value = observed.get(field)
+        if type(value) is int and 0 <= value <= maximum:
+            counters['clock_' + field] = value
     for code, value in sorted((motion.get('rejected') or {}).items()):
         if len(counters) < 32 and isinstance(code, str) and 0 < len(code) <= 25 and all(c in LOWER for c in code):
             counters['rej_' + code] = value

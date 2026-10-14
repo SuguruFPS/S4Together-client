@@ -6,6 +6,7 @@ repeating, ...), date_and_time.TimeSpan et date_and_time.TICKS_PER_REAL_WORLD_SE
 from .journal import log
 
 POLL_SECONDS = 1
+NETWORK_SECONDS = .25
 RETRY_TICKS = 10
 REPORT_TICKS = 60
 
@@ -52,6 +53,7 @@ class AutoLink:
         self.sent = None
         self.native_probe = native_probe
         self.native_probe_done = False
+        self.network_ticks = 0
 
     def _native_probe(self, status, loaded):
         # Diagnostic en lecture seule, une tentative par session du jeu, après confirmation native.
@@ -336,6 +338,10 @@ class AutoLink:
         diag = {'connection': manager.status()}
         presence = self.presence_sync
         diag['presence'] = presence.status() if presence is not None else {'state': 'not_started'}
+        from .visibility import observe_clock
+        diag['clock'] = observe_clock()
+        if self.terrain_sync is not None:
+            diag['terrain'] = self.terrain_sync.status()
         for key, sync in (('appearance', self.appearance_sync), ('remoteHouseholds', self.remote_households),
                           ('offlineGuard', self.offline_guard), ('remoteMotion', self.remote_motion)):
             diag[key] = sync.status() if sync is not None else {'state': 'not_started'}
@@ -434,7 +440,8 @@ class AutoLink:
     def _schedule(self):
         # Les alarmes non cross_zone meurent avec la zone : on réarme à chaque chargement.
         self.stop()
-        self.handle = self.scheduler(self, POLL_SECONDS, self.tick)
+        self.network_ticks = 0
+        self.handle = self.scheduler(self, NETWORK_SECONDS, self.pump)
 
     def stop(self):
         if self.handle is None:
@@ -444,6 +451,22 @@ class AutoLink:
             self.cancel(handle)
         except Exception as error:
             log('autoconnect_cancel', type(error).__name__)
+
+    def pump(self, _handle=None):
+        # Réception/ACK plus réactifs, sans multiplier les scans terrain, checkpoints ou délais par quatre.
+        full = self.network_ticks % int(POLL_SECONDS / NETWORK_SECONDS) == 0
+        self.network_ticks += 1
+        if full:
+            return self.tick()
+        try:
+            manager, _ = self.runtime()
+            self.deliver(manager, manager.poll())
+            sync, presence = self.character_sync, self.presence_sync
+            if (manager.status().get('authenticated') and sync is not None and sync.state == 'bound'
+                    and presence is not None):
+                presence.pump(manager, sync.character)
+        except Exception as error:
+            log('autoconnect_pump', type(error).__name__)
 
     def tick(self, _handle=None):
         # Une exception ne doit jamais remonter dans la boucle d'alarmes du jeu.
