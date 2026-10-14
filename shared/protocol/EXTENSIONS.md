@@ -346,3 +346,11 @@ L'heure locale, la vitesse, l'âge des Sims, les besoins et les fonds restent in
 Un serveur ancien sans ces champs garde l'application de la saison seule.
 Les clients anciens ignorent ces champs additionnels. Application native : NOT_TESTED_GAME.
 
+# #163 — proxies joueur et invitations (14/10/2026)
+
+Une représentation native S4T n'est jamais une session authentifiée ni un propriétaire canonique. Les messages `visit.request/respond/join/leave` existants déduisent l'acteur de la session serveur et exigent une présence native courante, une sélection de personnage et un flux actifs. Un appel/SMS/invitation produit par un clone du moteur n'est pas une requête serveur et ne constitue aucune autorisation. Les champs d'identité émetteur arbitraires ne sont pas acceptés dans leurs payloads exacts.
+
+Le mécanisme actuel est une demande de visite envoyée volontairement par le visiteur, avec acceptation de l'hôte ; il ne remplace PAS le futur modèle d'invitations d'événements envoyées par leur propriétaire et acceptées par le destinataire. L'autorisation de visite ne déplace aucun Sim : l'arrivée doit être observée par `game.join`, et le contexte session/flux invalide les anciennes permissions. Un festival natif proposé par un proxy ne doit jamais être converti automatiquement en visite autorisée.
+
+Client38 : tous les proxies reconnus par la description du foyer S4T sont exclus des filtres sociaux, même quand leur joueur est en ligne. Veto de `BaseDramaNode.run` installé avant la première zone et relisant le marqueur du foyer ; aucune dépendance au premier tick pour un expéditeur identifié. Les vrais PNJ passent par le comportement original. Les surcharges de `run`, les dialogues déjà affichés et leur acceptation/voyage restent à vérifier ; aucune protection complète ni UI événement autorisée revendiquée par ce lot.
+

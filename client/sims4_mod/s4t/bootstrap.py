@@ -80,6 +80,17 @@ def _install_save(commands, module=None):
     return True
 
 
+def _install_proxy_guard():
+    """Veto des expéditeurs S4T avant le premier chargement, sans état de présence ni réseau."""
+    try:
+        from .offline_guard import GameOffline
+        GameOffline().install(lambda _sim_id: False)
+        return True
+    except Exception as error:
+        log('bootstrap', 'proxy_guard_unavailable:' + type(error).__name__)
+        return False
+
+
 def install():
     log('bootstrap', 'started')
     try:
@@ -87,6 +98,7 @@ def install():
         if commands.game_commands is None:
             log('bootstrap', 'game_commands_unavailable')
             return False
+        _install_proxy_guard()
         import zone
         method = zone.Zone.on_loading_screen_animation_finished
         if getattr(method, '_s4t_wrapper', False):

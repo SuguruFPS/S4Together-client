@@ -1,4 +1,4 @@
-"""Sims des joueurs hors ligne : ils restent chez eux et ne contactent personne (13/10/2026).
+"""Proxies des joueurs : filtrage social permanent, hors ligne ou en ligne (#163).
 
 Un foyer « Nom (S4T) » dont le joueur n'est pas connecté au serveur est un PNJ ordinaire pour le jeu : il se promène,
 téléphone, invite. Tant que son joueur est absent (ou que nous sommes nous-mêmes déconnectés du serveur) :
@@ -7,7 +7,9 @@ téléphone, invite. Tant que son joueur est absent (ou que nous sommes nous-mê
 - s'il est présent ailleurs que sur son terrain, il est renvoyé chez lui.
 Chez lui, il reste visible : le jeu fait apparaître les habitants d'un terrain sans passer par les filtres.
 
-Chaque joueur est traité séparément (aucun état global) : le retour d'un joueur ne lève que son propre blocage.
+Chaque joueur est traité séparément : le retour lève le renvoi hors ligne, pas le filtrage social du proxy.
+Ce filtrage ne désactive pas toutes les voies d'autonomie du moteur. Les surcharges de drama.run et les
+acceptations d'anciens dialogues doivent encore être étudiées ; aucune protection universelle revendiquée.
 
 API vérifiée par désassemblage 1.128 (lecture seule), jamais exécutée en jeu :
 services.sim_filter_service().add_sim_id_to_global_blacklist(sim_id, reason) / remove_… ; le service tient
@@ -24,6 +26,7 @@ est absent des listes construites par filtre ; les listes construites autrement 
 NOT_TESTED_GAME.
 """
 from .journal import log
+from .remote_household import parse_description
 
 # tick() est appelé toutes les CHECK_TICKS secondes par AutoLink.
 CHECK_TICKS = 5
@@ -47,11 +50,13 @@ class OfflineGuard:
         self.blocked = {}
         self.asked = {}
         self.last = None
+        self.offline_players = set()
 
     def reset(self):
         # Nouvelle zone : tout est relu au prochain contrôle (l'adaptateur ne pose jamais deux fois notre motif).
         self.blocked = {}
         self.asked = {}
+        self.offline_players = set()
 
     def is_blocked(self, sim_id):
         return sim_id in self.blocked
@@ -63,7 +68,12 @@ class OfflineGuard:
         except Exception as error:
             log('offline_guard', 'install:' + type(error).__name__)
         wanted = {}
-        for household_id, player_id in offline_households(ghosts, online).items():
+        self.offline_players = set(offline_households(ghosts, online).values())
+        # Un proxy n'est jamais un PNJ autonome, même quand son propriétaire joue ailleurs.
+        for player_id, ghost in ghosts.items():
+            household_id = ghost.get('householdId')
+            if not household_id:
+                continue
             try:
                 for sim_id in self.adapter.sim_ids(household_id):
                     wanted[sim_id] = player_id
@@ -76,9 +86,13 @@ class OfflineGuard:
         for sim_id, player_id in wanted.items():
             if sim_id not in self.blocked and self._step(self.adapter.block, sim_id, 'block'):
                 self.blocked[sim_id] = player_id
-                self.asked[sim_id] = HOME_GRACE_CALLS
         sent = 0
         for sim_id in self.blocked:
+            if self.blocked[sim_id] not in self.offline_players:
+                self.asked.pop(sim_id, None)
+                continue  # Les instances en ligne restent pilotables par RemoteMotion.
+            if sim_id not in self.asked:
+                self.asked[sim_id] = HOME_GRACE_CALLS
             if self.asked.get(sim_id, 0) > 0:
                 self.asked[sim_id] -= 1
             elif self._step(self.adapter.send_home, sim_id, 'send_home'):
@@ -95,7 +109,7 @@ class OfflineGuard:
             return False
 
     def status(self):
-        return {'offlinePlayers': sorted(set(self.blocked.values())), 'blockedSims': len(self.blocked), 'last': self.last,
+        return {'offlinePlayers': sorted(self.offline_players), 'blockedSims': len(self.blocked), 'last': self.last,
                 'gameReadiness': 'NOT_TESTED_GAME'}
 
 
@@ -104,7 +118,10 @@ def veto(is_blocked, original, failure):
     def run(self, *args, **kwargs):
         try:
             sender = self.get_sender_sim_info()
-            blocked = sender is not None and is_blocked(sender.sim_id)
+            # Lecture de l'identité proxy dès le premier événement, avant le premier tick et après voyage.
+            household = getattr(sender, 'household', None)
+            proxy = parse_description(getattr(household, 'description', None)) is not None
+            blocked = sender is not None and (proxy or is_blocked(sender.sim_id))
         except Exception as error:
             log('offline_guard', 'veto:' + type(error).__name__)
             blocked = False
