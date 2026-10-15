@@ -254,20 +254,27 @@ public partial class MainWindow : Window
             }
             var dlcs = SelectedGame is { } g ? GameLocator.PacksForServer(GameLocator.DetectPacks(g.Path)) : [];
             settings.Dlcs = dlcs.ToList();
+            ServerStatus.Text = "Vérification des mods du serveur…";
+            var modSync = await ServerModSync.SyncAsync(address, ModsFolder, settings.ModSigningKeys, GameLocator.IsGameRunning());
+            var mods = modSync.Mods;
+            if (modSync.Downloaded + modSync.Removed > 0)
+                Status($"Mods du serveur : {modSync.Downloaded} installé(s), {modSync.Removed} retiré(s) dans Mods\\{ServerModSync.FolderName}.");
+            ServerStatus.Text = "Connexion…";
             MultiplayerLink created;
             var hadIdentity = settings.IdentityFor(address) is not null;
-            try { created = await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, settings.IdentityFor(address)); }
+            try { created = await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, settings.IdentityFor(address), mods: mods); }
             catch (ServerRejectedException ex) when (fromDirectory && health?.PasswordRequired is null && ex.Code == "invalid_password")
             {
                 if (!RequestDirectoryPassword(address)) return false;
                 password = PasswordBox.Password;
-                created = await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, settings.IdentityFor(address));
+                created = await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, settings.IdentityFor(address), mods: mods);
             }
-            created = await ResumeAccountOnSameWorld(created, address, dlcs, password, hadIdentity);
+            created = await ResumeAccountOnSameWorld(created, address, dlcs, password, hadIdentity, mods);
             link = created;
             gameEndpoint = ServerDirectory.Key(address);
             var known = ServerDirectory.Remember(settings.KnownServers, address, ServerLabelBox.Text);
             known.LastConnectedUtc = DateTimeOffset.UtcNow;
+            if (health?.Name is { } announced) ServerDirectory.RememberAnnouncedName(settings.KnownServers, address, announced);
             settings.RememberServerPassword(address, password ?? "", RememberBox.IsChecked == true);
             settings.RememberIdentity(address, created.Session.Hello!.PlayerId, created.Session.Hello.Token, WorldIdOf(created));
             SaveSettings();
@@ -276,6 +283,15 @@ public partial class MainWindow : Window
             created.Closed += reason => Dispatcher.InvokeAsync(() => OnLinkClosed(created, reason));
             created.Bridge.ModConnectionChanged += connected => Dispatcher.InvokeAsync(() => { if (ReferenceEquals(link, created)) OnModConnection(connected); });
             created.Bridge.Rejected += reason => Dispatcher.InvokeAsync(() => Status("Connexion locale refusée : " + reason));
+            created.Bridge.RequestRejected += (type, code) => Dispatcher.InvokeAsync(() =>
+            {
+                if (!ReferenceEquals(link, created) || type != "game.join") return;
+                joinWatch?.Cancel();
+                SimStatus.Text = code == "lot_taken"
+                    ? "Emménagement refusé : cette maison appartient à un autre joueur. La cohabitation sans accord n'est pas autorisée. Choisis une maison libre ; tu peux lui rendre visite avec ton propre foyer."
+                    : "Entrée en jeu refusée : " + ProtocolErrors.French(code);
+                Status(SimStatus.Text);
+            });
             ApplySnapshot(created.Session.Hello.Snapshot);
             ServerStatus.Text = "Connecté.";
             Status($"Connecté à {address.DisplayEndpoint}.");
@@ -286,6 +302,8 @@ public partial class MainWindow : Window
             return true;
         }
         catch (ServerRejectedException ex) { ServerStatus.Text = ProtocolErrors.French(ex.Code, ex.Message); }
+        catch (ServerModSyncException ex) { ServerStatus.Text = ex.Message; }
+        catch (UnauthorizedAccessException ex) { ServerStatus.Text = "Mods du serveur non installés (accès refusé au dossier Mods) : " + ex.Message; }
         catch (Exception ex) when (ex is IOException or System.Net.WebSockets.WebSocketException or TimeoutException or OperationCanceledException or System.Net.Sockets.SocketException or InvalidOperationException)
         {
             ServerStatus.Text = "Connexion impossible : " + ex.Message;

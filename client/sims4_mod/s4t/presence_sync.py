@@ -26,7 +26,9 @@ _CODE = re.compile(r'^[a-z_]{1,40}$')
 # Refus passagers : nouvel essai espacé de RETRY_TICKS, jamais à chaque seconde.
 _TRANSIENT = ('storage_unavailable', 'request_limit', 'revision_conflict', 'error', 'ack_timeout', 'home_not_registered')
 _ALERTS = {
-    'lot_taken': 'Cette maison est déjà réservée par un autre foyer du serveur. Choisis une maison libre dans le jeu.',
+    'lot_taken': "Emménagement refusé : cette maison appartient à un autre joueur. "
+                 "La cohabitation sans accord n'est pas autorisée. Choisis une maison libre ; "
+                 "tu peux lui rendre visite avec ton propre foyer.",
     'members_changed': 'Le foyer a changé depuis la liaison du personnage (naissance, emménagement, départ). '
                        'Présence en ligne suspendue : une nouvelle liaison est nécessaire.',
     'binding_mismatch': 'Le serveur ne reconnaît pas ce foyer pour ce personnage. Présence en ligne suspendue.',

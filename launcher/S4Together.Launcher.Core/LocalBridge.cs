@@ -34,7 +34,7 @@ public sealed class LocalBridge : IAsyncDisposable
     readonly byte[] secret;
     readonly CancellationTokenSource life = new();
     readonly SemaphoreSlim sendLock = new(1, 1);
-    readonly HashSet<string> modRequests = [];
+    readonly Dictionary<string, string> modRequests = [];
     readonly Lock gate = new();
     WebSocket? mod;
     readonly System.Collections.Concurrent.ConcurrentDictionary<WebSocket,bool> chunking=new();
@@ -48,6 +48,8 @@ public sealed class LocalBridge : IAsyncDisposable
 
     public event Action<bool>? ModConnectionChanged;
     public event Action<string>? Rejected;
+    /// <summary>Refus corrélé à une requête réelle du mod ; aucun texte libre du serveur.</summary>
+    public event Action<string, string>? RequestRejected;
 
     LocalBridge(TcpListener listener, IBridgeUpstream upstream)
     {
@@ -219,7 +221,7 @@ public sealed class LocalBridge : IAsyncDisposable
                 await SendToAsync(socket, new JsonObject { ["v"] = 1, ["id"] = id, ["type"] = "error", ["ok"] = false, ["code"] = "forbidden", ["message"] = "Requête non relayée." }, life.Token);
                 continue;
             }
-            lock (gate) modRequests.Add(id);
+            lock (gate) modRequests[id] = type;
             try { await upstream.ForwardAsync(request, life.Token); }
             catch (Exception e) when (e is WebSocketException or InvalidOperationException or ObjectDisposedException)
             {
@@ -230,16 +232,22 @@ public sealed class LocalBridge : IAsyncDisposable
     }
 
     /// <summary>Réponse du serveur à une requête du mod : renvoyée au mod seulement si elle lui appartient.</summary>
-    public Task DeliverReplyAsync(JsonObject reply)
+    public async Task DeliverReplyAsync(JsonObject reply)
     {
         var id = reply["id"] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
         WebSocket? target;
+        string? requestType;
         lock (gate)
         {
-            if (id is null || !modRequests.Remove(id)) return Task.CompletedTask;
+            if (id is null || !modRequests.Remove(id, out requestType)) return;
             target = mod;
         }
-        return target is null ? Task.CompletedTask : SafeSendAsync(target, reply);
+        // Le refus atteint toujours le mod avant le retour UI. Ne jamais consommer son ACK pour afficher un statut.
+        if (target is not null) await SafeSendAsync(target, reply);
+        if (reply["ok"] is JsonValue ok && ok.TryGetValue<bool>(out var accepted) && !accepted
+            && reply["code"] is JsonValue value && value.TryGetValue<string>(out var code)
+            && code.Length is > 0 and <= 40 && code.All(c => c is >= 'a' and <= 'z' or '_'))
+            RequestRejected?.Invoke(requestType, code);
     }
 
     /// <summary>Événement serveur diffusé au mod connecté.</summary>
