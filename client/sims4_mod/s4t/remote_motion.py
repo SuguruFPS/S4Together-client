@@ -154,6 +154,7 @@ class RemoteMotion:
         self.moves = {}
         self.unlevel = set()     # Joueurs dont la pose n'a pas d'étage : ni spawn ni trajet.
         self.mapping = {}        # (playerId, simId distant) -> (foyer local, Sim local)
+        self.represented = {}    # Joueur -> (foyer local, Sim distant, empreinte appliquée prouvée).
 
     def _forget_view(self):
         self.zone_id = None
@@ -482,12 +483,26 @@ class RemoteMotion:
         for player in sorted(self.participants):
             if player == self.own:
                 continue
-            sim_id = self._represented(ghosts.get(player), appearances.get(player))
+            ghost, appearance = ghosts.get(player), appearances.get(player)
+            sim_id = self._represented_for(player, ghost, appearance)
             unrepresented += sum(1 for key in self.poses if key[0] == player and key[1] != sim_id)
             if sim_id is not None and (player, sim_id) in self.poses:
                 targets[player] = (ghosts[player]['householdId'], sim_id, self.poses[(player, sim_id)])
         self.unrepresented = unrepresented
         return targets
+
+    def _represented_for(self, player, ghost, appearance):
+        sim_id = self._represented(ghost, appearance)
+        if sim_id is not None:
+            self.represented[player] = (ghost['householdId'], sim_id, ghost['sha16'])
+            return sim_id
+        if isinstance(ghost, dict) and isinstance(appearance, dict):
+            # Une nouvelle tenue ne doit pas rompre l'identité du clone déjà prouvée.
+            proof = self.represented.get(player)
+            expected = (ghost.get('householdId'), appearance.get('simId'), ghost.get('sha16'))
+            if proof is not None and proof == expected and ghost.get('sha16') != PENDING:
+                return appearance['simId']
+        return None
 
     @staticmethod
     def _represented(ghost, appearance):
@@ -506,9 +521,9 @@ class RemoteMotion:
         for player in sorted(self.owned):
             if joined:
                 ghost, appearance = ghosts.get(player), appearances.get(player)
-                # Apparence changée : l'instance est rendue pour que RemoteHouseholds mette le clone à jour.
+                # Identité changée ou jamais prouvée : rendre uniquement notre instance.
                 changed = (isinstance(ghost, dict) and isinstance(appearance, dict)
-                           and self._represented(ghost, appearance) is None)
+                           and self._represented_for(player, ghost, appearance) is None)
                 if player in self.participants and not changed:
                     continue
             elif self.away <= GRACE_TICKS:
@@ -558,6 +573,7 @@ class RemoteMotion:
         self._forget(player)
 
     def _forget(self, player):
+        self.represented.pop(player, None)
         for store in (self.owned, self.releases, self.moves, self.retry):
             store.pop(player, None)
         self.unlevel.discard(player)

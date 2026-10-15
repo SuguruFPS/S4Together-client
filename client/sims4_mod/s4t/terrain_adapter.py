@@ -160,23 +160,25 @@ class TerrainReader:
     def read(self):
         """{objects, blocks, blocksReadable, skipped} du terrain actif, ou {error} s'il dépasse les bornes."""
         self._main_thread()
-        rows, skipped = [], 0
+        rows, skipped, errors = [], 0, collections.Counter()
         for item in self.services.object_manager().valid_objects():
             try:
                 row = self._row(item)
-            except Exception:
+            except Exception as error:
                 row = False
+                errors['object_' + type(error).__name__] += 1
             if row is None:
                 continue
             if row is False:
                 skipped += 1
+                errors['invalid_object'] += 1
                 continue
             rows.append(row)
             if len(rows) > MAX_OBJECTS:
                 return {'error': 'too_many_objects'}
         blocks = self._blocks()
         return {'objects': sorted(rows), 'blocks': blocks or [], 'blocksReadable': blocks is not None,
-                'skipped': skipped}
+                'skipped': skipped, 'readErrors': dict(errors), 'blockError': self.block_error}
 
     def _row(self, item):
         """Ligne de l'objet ; None s'il n'appartient pas au terrain (Sim, porté, dehors) ; False s'il est illisible."""
@@ -199,6 +201,7 @@ class TerrainReader:
 
     def _blocks(self):
         """Contours de pièces triés, [] sans module build_buy, None s'ils sont illisibles ou hors bornes."""
+        self.block_error = None
         if self.build_buy is None:
             return []
         try:
@@ -209,10 +212,12 @@ class TerrainReader:
                     block = [level, [[_mm(point.x), _mm(point.z)] for point in polygon]]
                     vertices += len(block[1])
                     if not _valid_block(block) or len(blocks) >= MAX_BLOCKS or vertices > MAX_VERTICES:
+                        self.block_error = 'invalid_or_oversized_polygon'
                         return None
                     blocks.append(block)
             return sorted(blocks)
         except Exception as error:
+            self.block_error = type(error).__name__
             log('terrain_blocks', type(error).__name__)
             return None
 

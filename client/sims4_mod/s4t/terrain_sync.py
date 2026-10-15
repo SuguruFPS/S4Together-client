@@ -72,6 +72,7 @@ class TerrainSync:
         self.ticks = 0
         self.online = False
         self.read_error = None
+        self.read_stats = {}
 
     def mark_dirty(self, reason='object_event'):
         """Événement natif : le terrain sera relu au prochain relevé. Aucune lecture ici."""
@@ -180,6 +181,7 @@ class TerrainSync:
         return 'terrain.publish'
 
     def _snapshot(self, lot_id):
+        self.read_stats = {}
         try:
             content = self.read()
         except Exception as error:
@@ -190,6 +192,8 @@ class TerrainSync:
             self.read_error = content.get('error') if isinstance(content, dict) else 'unreadable'
             log('terrain_read', str(self.read_error))
             return None
+        self.read_stats = {'skipped': content.get('skipped'), 'blocksReadable': content.get('blocksReadable'),
+                           'objectErrors': dict(content.get('readErrors') or {}), 'blockError': content.get('blockError')}
         if content.get('blocksReadable') is not True or content.get('skipped') != 0:
             self.read_error = 'partial_read'
             return None  # Une absence de lecture n'est pas une suppression d'objet ou de pièce.
@@ -446,4 +450,5 @@ class TerrainSync:
                 'published': own.get('hash') is not None, 'dirty': self.dirty, 'readError': self.read_error,
                 'fetching': self.fetching[1] if self.fetching else None, 'remote': remote,
                 'rejected': dict(self.rejected), 'applier': self.apply is not None,
+                'readStats': dict(self.read_stats),
                 'architecture': 'not_transferred', 'gameReadiness': 'NOT_TESTED_GAME'}

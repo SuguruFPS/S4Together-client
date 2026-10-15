@@ -1,3 +1,10 @@
+# Client0.1.46 — continuite du proxy et essai assise
+
+Correction du gel lors d un changement de tenue pour le meme Sim deja prouve. Premier rejeu borne de l assise utilisateur sur proxy verifie et siege present/non ambigu. Aucun rejeu social, mouvement force du vrai joueur ou partage de besoins. Diagnostic mobilier automatique affine.
+
+104launcher/186serveur/1298PythonPASS1SKIP, paquet et WPF PASS. NOT_TESTED_GAME : assise et continuite a verifier sur deux jeux. Meubles/batiments manquants, conversations, anciens clones non prouves et heure/meteo/vitesse restent ouverts. Compatible serveur0.1.33, aucun serveur remplace.
+
+---
 # Client0.1.45 — portraits transparents
 
 Le blanc relie aux bords des portraits devient transparent uniquement a l affichage. Originaux preserves ; les details blancs internes restent visibles. Fonds colores non detoures.104tests launcher et paquet/WPF PASS. Rendu sur portraits joueurs a confirmer. Serveur0.1.33 inchange.

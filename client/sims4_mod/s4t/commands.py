@@ -65,6 +65,7 @@ def auto_link():
             sync = TerrainSync(reader.locate, reader.read, applier.apply)
             return sync, game_events(sync.mark_dirty)
         from .offline_guard import OfflineGuard
+        from .remote_actions import RemoteActions
         def native_probe():
             from . import native_probe as probe
             probe.write(probe.inspect())
@@ -74,7 +75,8 @@ def auto_link():
                          appearance_sync=appearance, remote_households=households,
                          remote_motion=motion, interaction_observer=interactions,
                          interaction_publisher=InteractionPublisher(peer_streams=lambda: dict(motion.streams)),
-                         terrain_factory=terrain_factory, offline_guard=OfflineGuard(), season_phase=SeasonPhaseSync(), native_probe=native_probe)
+                         terrain_factory=terrain_factory, offline_guard=OfflineGuard(), season_phase=SeasonPhaseSync(), native_probe=native_probe,
+                         remote_actions=RemoteActions(motion))
     return _auto
 
 

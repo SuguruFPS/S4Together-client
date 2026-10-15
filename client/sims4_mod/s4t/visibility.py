@@ -118,6 +118,14 @@ def report(diag):
                     terrain_remote=len(remote),
                     terrain_applied=sum(entry.get('state') == 'applied' for entry in remote.values()),
                     terrain_blocked=sum(str(entry.get('state', '')).startswith('blocked:') for entry in remote.values()))
+    read_stats = terrain.get('readStats') or {}
+    counters.update(terrain_skipped=read_stats.get('skipped'),
+                    terrain_bad_blocks=int(read_stats.get('blocksReadable') is False),
+                    terrain_obj_errors=sum(_n(v) for k, v in (read_stats.get('objectErrors') or {}).items()
+                                           if k != 'invalid_object'))
+    actions = diag.get('remoteActions') or {}
+    counters.update(seat_started=actions.get('started'), seat_refused=actions.get('refused'),
+                    seat_pending=actions.get('pending'))
     for code, value in sorted((motion.get('rejected') or {}).items()):
         if len(counters) < 32 and isinstance(code, str) and 0 < len(code) <= 25 and all(c in LOWER for c in code):
             counters['rej_' + code] = value

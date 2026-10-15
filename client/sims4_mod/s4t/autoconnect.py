@@ -29,11 +29,12 @@ class AutoLink:
                  character_sync=None, presence_sync=None, home_sync=None, appearance_sync=None, remote_households=None,
                  remote_motion=None, interaction_observer=None, interaction_publisher=None,
                  terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None, native_probe=None,
-                 disconnect_guard=None):
+                 disconnect_guard=None, remote_actions=None):
         self.runtime = runtime
         self.offline_guard = offline_guard
         self.interaction_observer = interaction_observer
         self.interaction_publisher = interaction_publisher
+        self.remote_actions = remote_actions
         self.interaction_context = None
         self.interaction_stream = None
         self.appearance_sync = appearance_sync
@@ -266,6 +267,11 @@ class AutoLink:
         # Les interactions suivies meurent avec la zone : nouveau flux, sans appel natif. La requête en vol est
         # oubliée et la file purgée : rien de l'ancienne zone n'est rejoué à la reconnexion.
         self.interaction_context = self.interaction_stream = None
+        if self.remote_actions is not None:
+            try:
+                self.remote_actions.reset()
+            except Exception as error:
+                log('remote_actions', 'reset:' + type(error).__name__)
         publisher = self.interaction_publisher
         if publisher is not None:
             try:
@@ -329,6 +335,11 @@ class AutoLink:
         try:
             flow = (context[0], context[1], stream) if context is not None else None
             self.interaction_publisher.tick(manager, bool(authenticated), flow, events)
+            if self.remote_actions is not None:
+                if flow is None:
+                    self.remote_actions.reset()
+                else:
+                    self.remote_actions.tick(self.interaction_publisher.received)
         except Exception as error:
             log('interaction_publisher', type(error).__name__)
 
@@ -354,6 +365,8 @@ class AutoLink:
         diag['presence'] = presence.status() if presence is not None else {'state': 'not_started'}
         from .visibility import observe_clock
         diag['clock'] = observe_clock()
+        if self.remote_actions is not None:
+            diag['remoteActions'] = self.remote_actions.status()
         if self.terrain_sync is not None:
             diag['terrain'] = self.terrain_sync.status()
         for key, sync in (('appearance', self.appearance_sync), ('remoteHouseholds', self.remote_households),
