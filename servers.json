@@ -1,4 +1,11 @@
 {
   "format": 1,
-  "servers": []
+  "servers": [
+    {
+      "name": "SuguruSims",
+      "address": "176.170.3.253",
+      "port": 27015,
+      "public": true
+    }
+  ]
 }
