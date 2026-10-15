@@ -1,4 +1,11 @@
-S4Together 0.1.41-game-test — mod de test, launcher 0.1.41 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.42-game-test — mod de test, launcher 0.1.42 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+CORRECTIFS 0.1.42
+Recuperation automatique de la vue perdue avec presence confirmee.
+Copies S4T non selectionnables : besoins visibles de base neutralises, degradation gelee et sous-actions autonomes bloquees. Aucun besoin du joueur reel copie vers un autre.
+Refus de domicile tiers affiche dans le launcher ; pas de cohabitation implicite.
+Animations assises, maisons completes, heure/meteo/vitesse proprietaire NON corrigees dans cette version. Rendu et latence deux PC : NOT_TESTED_GAME.
+
 
 REACTIVITE ET OBJETS SUR SUPPORTS 0.1.41
 Reception reseau toutes les250ms; scans/sauvegardes et cadence serveur conserves. Les clones distants non selectionnables ne choisissent plus de nouvelles interactions par FullAutonomy. Les objets poses sur un meuble sont recrees seulement si un emplacement natif vide et compatible est trouve sans ambiguite. Les animations et l’heure du proprietaire ne sont pas encore synchronisees ; diagnostic d’heure automatique pour poursuivre. Rendu et latence entre deux vrais jeux restent a verifier.

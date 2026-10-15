@@ -86,6 +86,9 @@ class OfflineGuard:
         for sim_id, player_id in wanted.items():
             if sim_id not in self.blocked and self._step(self.adapter.block, sim_id, 'block'):
                 self.blocked[sim_id] = player_id
+            neutralize = getattr(self.adapter, 'neutralize', None)
+            if neutralize is not None:
+                self._step(neutralize, sim_id, 'proxy_motives')
         sent = 0
         for sim_id in self.blocked:
             if self.blocked[sim_id] not in self.offline_players:
@@ -133,14 +136,14 @@ def veto(is_blocked, original, failure):
     return run
 
 
-def veto_autonomy(original):
+def veto_autonomy(original, failure=False):
     """Le proxy distant non sélectionnable ne choisit jamais sa propre prochaine interaction autonome."""
     def test(component, *args, **kwargs):
         try:
             info = component.owner.sim_info
             if (info.is_selectable is False
                     and parse_description(getattr(info.household, 'description', None)) is not None):
-                return False
+                return failure
         except (AttributeError, TypeError):
             pass
         return original(component, *args, **kwargs)
@@ -150,6 +153,17 @@ def veto_autonomy(original):
 
 class GameOffline:
     """Adaptateur du jeu. Chaque méthode peut lever ; OfflineGuard journalise et continue."""
+
+    def __init__(self):
+        from .proxy_motives import ProxyMotiveGuard
+        self.motives = ProxyMotiveGuard()
+
+    def neutralize(self, sim_id):
+        import services
+        from autonomy.autonomy_modifier import AutonomyModifier
+        info = services.sim_info_manager().get(sim_id)
+        sim = info.get_sim_instance() if info is not None else None
+        return sim is not None and self.motives.update(sim, services.active_household_id(), AutonomyModifier)
 
     def install(self, is_blocked):
         from drama_scheduler import drama_node
@@ -163,6 +177,14 @@ class GameOffline:
                 AutonomyComponent._test_full_autonomy = veto_autonomy(original)
         except (ImportError, AttributeError) as error:
             log('offline_guard', 'autonomy_hook:' + type(error).__name__)
+        try:
+            from autonomy.autonomy_component import AutonomyComponent
+            from event_testing.results import EnqueueResult
+            original = AutonomyComponent.run_subaction_autonomy
+            if getattr(original, 's4t_original', None) is None:
+                AutonomyComponent.run_subaction_autonomy = veto_autonomy(original, EnqueueResult.NONE)
+        except (ImportError, AttributeError) as error:
+            log('offline_guard', 'subautonomy_hook:' + type(error).__name__)
 
     def _reason(self):
         from filters.sim_filter_service import SimFilterGlobalBlacklistReason
@@ -185,6 +207,11 @@ class GameOffline:
 
     def unblock(self, sim_id):
         import services
+        if self.motives.records:
+            info = services.sim_info_manager().get(sim_id)
+            sim = info.get_sim_instance() if info is not None else None
+            if sim is not None:
+                self.motives.release(sim)
         service, reason = services.sim_filter_service(), self._reason()
         if reason in service._global_blacklist.get(sim_id, ()):
             service.remove_sim_id_from_global_blacklist(sim_id, reason)

@@ -329,7 +329,11 @@ class AutoLink:
         presence, households, appearance = self.presence_sync, self.remote_households, self.appearance_sync
         zone_id = presence.zone_id if presence is not None and presence.state == 'joined' else None
         identity = getattr(manager, 'identity', None)
-        self.remote_motion.tick(manager, zone_id, identity.get('playerId') if isinstance(identity, dict) else None,
+        player_id = identity.get('playerId') if isinstance(identity, dict) else None
+        recover = getattr(self.remote_motion, 'recover_view', None)
+        if zone_id is not None and getattr(self.remote_motion, 'zone_id', None) is None and callable(recover):
+            recover(manager, zone_id, player_id)
+        self.remote_motion.tick(manager, zone_id, player_id,
                                 households.ghosts if households is not None else {},
                                 appearance.remote if appearance is not None else {})
 

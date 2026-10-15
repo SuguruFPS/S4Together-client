@@ -171,6 +171,24 @@ class RemoteMotion:
     def _reject(self, code):
         self.rejected[code] = self.rejected.get(code, 0) + 1
 
+    def recover_view(self, manager, zone_id, own_player):
+        """Présence déjà confirmée mais vue perdue : relire le serveur, jamais inventer une pose.
+        Appelé uniquement par AutoLink avec la zone confirmée de PresenceSync.
+        Les instances existantes ne sont pas retirées pendant cette récupération.
+        """
+        if self.zone_id is not None or not isinstance(zone_id, str) or not zone_id.startswith('native:'):
+            return False
+        if not isinstance(own_player, str) or not own_player:
+            return False
+        if self.waiting is not None:
+            manager.forget(self.waiting[0])
+            self.waiting = None
+        self._forget_view()
+        self.zone_id, self.own, self.cooldown = zone_id, own_player, 0
+        self.need.add('view_lost')
+        log('remote_motion', 'view_recovery')
+        return True
+
     # -- Réception --------------------------------------------------------------------------------------
 
     def on_join(self, zone_id, payload):
@@ -424,6 +442,8 @@ class RemoteMotion:
         except Exception as error:
             # File pleine ou lien coupé : la demande reste due, le nettoyage ci-dessous a lieu quand même.
             self._reject('snapshot:' + type(error).__name__)
+        if 'view_lost' in self.need:
+            return  # Attendre le snapshot avant tout mouvement ou retrait d'une instance existante.
         targets = self._targets(ghosts, appearances) if joined else {}
         self.mapping = {k: v for k, v in self.mapping.items() if k[0] in targets and k[1] == targets[k[0]][1]}
         if not self._cleanup(joined, ghosts, appearances) and joined:

@@ -1,3 +1,12 @@
+# Client de test 0.1.42
+
+Reprise automatique de la vue perdue, copies S4T passives (besoins locaux de base et sous-actions autonomes), refus de domicile tiers visible.
+
+NOT_TESTED_GAME : animations assises/actions distantes, meubles manquants, maisons completes et heure/meteo/vitesse du proprietaire restent a corriger. Cette version ne resout pas toute la synchronisation. Fermer le jeu puis actualiser les deux launchers pour mettre le mod suivi a jour.
+
+---
+Historique du depot :
+
 # S4Together — client (launcher + mod)
 
 Sources publiques du launcher Windows et du mod Sims 4 de S4Together, projet multijoueur expérimental.

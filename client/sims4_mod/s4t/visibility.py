@@ -32,6 +32,8 @@ def save(diag, root=None):
     connection = diag.get('connection') or {}
     value['connection'] = {k: connection[k] for k in ('authenticated', 'state') if k in connection}
     value['time'] = int(time.time())
+    from .journal import VERSION
+    value['modVersion'] = VERSION
     target = root / 'visibility-last.json'
     pending = root / 'visibility-last.json.next'
     pending.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True), encoding='utf-8')
@@ -109,6 +111,13 @@ def report(diag):
         value = observed.get(field)
         if type(value) is int and 0 <= value <= maximum:
             counters['clock_' + field] = value
+    terrain = diag.get('terrain') or {}
+    remote = terrain.get('remote') or {}
+    counters.update(terrain_published=int(terrain.get('published') is True),
+                    terrain_read_blocked=int(terrain.get('readError') is not None),
+                    terrain_remote=len(remote),
+                    terrain_applied=sum(entry.get('state') == 'applied' for entry in remote.values()),
+                    terrain_blocked=sum(str(entry.get('state', '')).startswith('blocked:') for entry in remote.values()))
     for code, value in sorted((motion.get('rejected') or {}).items()):
         if len(counters) < 32 and isinstance(code, str) and 0 < len(code) <= 25 and all(c in LOWER for c in code):
             counters['rej_' + code] = value
