@@ -75,6 +75,7 @@ public partial class MainWindow : Window
         SetupTray();
         DetectGames();
         DetectModsFolders();
+        StartServerModMaintenance();
         Closing += OnClosing;
         RefreshAll();
         NavTo("PageServer");
@@ -256,6 +257,7 @@ public partial class MainWindow : Window
             settings.Dlcs = dlcs.ToList();
             ServerStatus.Text = "Vérification des mods du serveur…";
             var modSync = await ServerModSync.SyncAsync(address, ModsFolder, settings.ModSigningKeys, GameLocator.IsGameRunning());
+            activeServerModFolder = ModsFolder;
             var mods = modSync.Mods;
             if (modSync.Downloaded + modSync.Removed > 0)
                 Status($"Mods du serveur : {modSync.Downloaded} installé(s), {modSync.Removed} retiré(s) dans Mods\\{ServerModSync.FolderName}.");
@@ -335,6 +337,7 @@ public partial class MainWindow : Window
         HideAdmin();
         ServerStatus.Text = reason;
         RefreshAll();
+        await ReviewServerModsAsync();
     }
 
     void OnLinkClosed(MultiplayerLink closed, string reason)
@@ -1070,6 +1073,7 @@ public partial class MainWindow : Window
 
     bool RunModAction(Func<string> action)
     {
+        if (busy) { Status("Une opération sur les mods est en cours. Réessaie dans un instant."); return false; }
         try
         {
             var message = action();
@@ -1140,6 +1144,7 @@ public partial class MainWindow : Window
     async Task PlayAsync()
     {
         void Failure(string message) { SimStatus.Text = message; Status(message); }
+        if (busy) { Failure("Une opération est en cours. Réessaie dans un instant."); return; }
         if (SelectedGame is not { } game) { Failure("Choisis l'installation du jeu dans Paramètres."); return; }
         if (package is null) { Failure(packageProblem); return; }
         var folderProblem = GameLocator.ValidateModsFolder(ModsFolder);
@@ -1375,7 +1380,8 @@ public partial class MainWindow : Window
 
     async void Quit()
     {
-        if (quitting) return;
+        if (quitting || reviewingServerMods) return;
+        if (busy) { Status("Une opération est en cours. Attends sa fin avant de quitter."); return; }
         if (link is not null && GameLocator.IsGameRunning()
             && !Confirm("Le jeu est ouvert : quitter le launcher coupera sa connexion au serveur. Quitter quand même ?")) return;
         quitting = true;
@@ -1388,6 +1394,8 @@ public partial class MainWindow : Window
             try { await old.DisposeAsync(); }
             catch (Exception ex) when (ex is IOException or System.Net.WebSockets.WebSocketException or ObjectDisposedException) { }
         }
+        await ReviewServerModsAsync();
+        serverModTimer.Stop();
         tray.Visible = false;
         tray.Dispose();
         Close();

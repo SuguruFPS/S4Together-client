@@ -1,4 +1,7 @@
-S4Together 0.1.42-game-test — mod de test, launcher 0.1.42 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.43-game-test — mod de test, launcher 0.1.43 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+MODS SERVEUR 0.1.43
+Installation automatique des mods publies a la connexion, jeu ferme. Au depart : Garder ou Retirer les mods. Retrait differe jusqu a fermeture du jeu, repris au prochain lancement si necessaire. Gestion accessible dans Parametres. Fichiers personnels et modifies preserves. Cadre des portraits transparent, selection verte conservee.
 
 CORRECTIFS 0.1.42
 Recuperation automatique de la vue perdue avec presence confirmee.

@@ -32,6 +32,8 @@ public sealed class LauncherSettings
     public Dictionary<string, StoredIdentity> Identities { get; set; } = [];
     public List<KnownServer> KnownServers { get; set; } = [];
     public Dictionary<string, string> ServerPasswords { get; set; } = [];
+    /// <summary>Empreinte de la clé qui signe les mods de chaque serveur, épinglée à la première connexion.</summary>
+    public Dictionary<string, string> ModSigningKeys { get; set; } = [];
 
     static readonly JsonSerializerOptions Json = new() { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.Never };
     static readonly byte[] Entropy = Encoding.UTF8.GetBytes("S4Together.Launcher.v2");

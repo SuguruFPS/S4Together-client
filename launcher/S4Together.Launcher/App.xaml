@@ -74,12 +74,12 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ListBoxItem">
-            <Border x:Name="CardSelection" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="2" CornerRadius="10" Padding="10">
+            <Border x:Name="CardSelection" Background="Transparent" BorderBrush="{StaticResource Line}" BorderThickness="2" CornerRadius="10" Padding="10">
               <ContentPresenter/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CardSelection" Property="BorderBrush" Value="{StaticResource MutedBrush}"/></Trigger>
-              <Trigger Property="IsSelected" Value="True"><Setter TargetName="CardSelection" Property="BorderBrush" Value="{StaticResource Accent}"/><Setter TargetName="CardSelection" Property="Background" Value="#21362B"/></Trigger>
+              <Trigger Property="IsSelected" Value="True"><Setter TargetName="CardSelection" Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger>
               <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="CardSelection" Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>

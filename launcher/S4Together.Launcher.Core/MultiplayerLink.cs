@@ -38,9 +38,9 @@ public sealed class MultiplayerLink : IBridgeUpstream, IAsyncDisposable
     }
 
     public static async Task<MultiplayerLink> ConnectAsync(ServerAddress address, string name, IReadOnlyList<string> dlcs, string? password,
-        (string PlayerId, string Token)? identity, int bridgePort = PreferredBridgePort, CancellationToken cancel = default)
+        (string PlayerId, string Token)? identity, int bridgePort = PreferredBridgePort, CancellationToken cancel = default, IReadOnlyList<ServerModDeclaration>? mods = null)
     {
-        var session = await ServerSession.ConnectAsync(address, name, dlcs, password, identity, cancel);
+        var session = await ServerSession.ConnectAsync(address, name, dlcs, password, identity, cancel, mods);
         return new MultiplayerLink(session, address, upstream => LocalBridge.Start(upstream, bridgePort));
     }
 

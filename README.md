@@ -1,3 +1,12 @@
+# Client de test 0.1.43
+
+Mods du serveur installes automatiquement jeu ferme. Au depart : Garder ou Retirer ; retrait differe et repris au prochain lancement. Parametres permet de gerer ce choix. Fichiers personnels/modifies preserves. Cadres des portraits transparents.
+
+Necessite un serveur avec catalogue publie ; dossier automatique disponible dans le candidat serveur0.1.32, non deploye sur la production31. NOT_TESTED_GAME : chargement reel des mods et nouveaux dialogues a valider. Animations distantes, meubles/maisons et heure/meteo/vitesse restent ouverts.
+
+---
+Historique :
+
 # Client de test 0.1.42
 
 Reprise automatique de la vue perdue, copies S4T passives (besoins locaux de base et sous-actions autonomes), refus de domicile tiers visible.

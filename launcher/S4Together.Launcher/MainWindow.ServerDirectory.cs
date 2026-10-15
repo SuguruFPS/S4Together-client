@@ -11,7 +11,7 @@ public sealed record ServerDirectoryRow(KnownServer Server, HealthResult? Health
 {
     public string Endpoint => Server.Endpoint;
     public string DisplayEndpoint => Server.Address.DisplayEndpoint;
-    public string Title => (Server.Favorite ? "★ " : "") + Server.Name;
+    public string Title => (Server.Favorite ? "★ " : "") + Server.DisplayName;
     public string Detail => Health is null ? "Pas encore testé" : !Health.Ok ? Health.Message
         : $"Accessible · {Health.LatencyMs} ms · joueurs {(Health.Players is { } n ? n.ToString() : "?")}/{(Health.MaxPlayers is { } max ? max.ToString() : "?")}"
             + (Health.PasswordRequired is true ? " · 🔒 Mot de passe" : Health.PasswordRequired is false ? " · Sans mot de passe" : " · Protection inconnue")
@@ -49,13 +49,14 @@ public partial class MainWindow
     {
         settings.KnownServers ??= [];
         settings.ServerPasswords ??= [];
+        settings.ModSigningKeys ??= [];
         settings.KnownServers = ServerDirectory.Visible(settings.KnownServers).ToList();
         try
         {
             var address = ServerAddress.Parse(HostBox.Text, PortBox.Text);
             ShowServerAddress(address);
             gameEndpoint = passwordEndpoint = ServerDirectory.Key(address);
-            if (settings.KnownServers.Count == 0) ServerDirectory.Remember(settings.KnownServers, address, "Mon serveur");
+            if (settings.KnownServers.Count == 0) ServerDirectory.Remember(settings.KnownServers, address, ServerDirectory.DefaultLabel);
             PasswordBox.Password = settings.PasswordFor(address);
             RememberBox.IsChecked = PasswordBox.Password.Length > 0;
         }
@@ -140,7 +141,7 @@ public partial class MainWindow
     void DirectoryRemove_Click(object sender, RoutedEventArgs e)
     {
         if (busy || ServerDirectoryList.SelectedItem is not ServerDirectoryRow row) return;
-        settings.KnownServers.Remove(row.Server); settings.ServerPasswords.Remove(row.Endpoint);
+        settings.KnownServers.Remove(row.Server); settings.ServerPasswords.Remove(row.Endpoint); settings.ModSigningKeys.Remove(row.Endpoint);
         SaveSettings(); RefreshDirectory(); ServerStatus.Text = "Fiche retirée. Tes personnages restent sur le serveur.";
     }
 
@@ -151,12 +152,19 @@ public partial class MainWindow
         try
         {
             using var concurrency = new SemaphoreSlim(4);
+            var renamed = false;
             await Task.WhenAll(ServerDirectory.Visible(settings.KnownServers).Select(async server =>
             {
                 await concurrency.WaitAsync();
-                try { directoryHealth[server.Endpoint] = await HealthProbe.CheckAsync(server.Address, HealthTimeout); }
+                try
+                {
+                    var health = await HealthProbe.CheckAsync(server.Address, HealthTimeout);
+                    directoryHealth[server.Endpoint] = health;
+                    if (health.Ok && ServerDirectory.RememberAnnouncedName(settings.KnownServers, server.Address, health.Name)) renamed = true;
+                }
                 finally { concurrency.Release(); }
             }));
+            if (renamed) SaveSettings();
             RefreshDirectory();
         }
         catch (Exception ex) when (ex is FormatException or System.IO.IOException or InvalidOperationException)
@@ -169,7 +177,8 @@ public partial class MainWindow
 
     /// <summary>Nouvelle adresse d'un serveur déjà connu (même worldId) : propose de reprendre l'ancien compte
     /// au lieu du compte vide que le serveur vient de créer. Refus ou échec : on garde le nouveau compte.</summary>
-    async Task<MultiplayerLink> ResumeAccountOnSameWorld(MultiplayerLink created, ServerAddress address, IReadOnlyList<string> dlcs, string? password, bool hadIdentity)
+    async Task<MultiplayerLink> ResumeAccountOnSameWorld(MultiplayerLink created, ServerAddress address, IReadOnlyList<string> dlcs, string? password, bool hadIdentity,
+        IReadOnlyList<ServerModDeclaration> mods)
     {
         if (hadIdentity) return created;
         var hello = created.Session.Hello!;
@@ -181,11 +190,11 @@ public partial class MainWindow
             "Même serveur, autre adresse", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes) return created;
         await created.DisposeAsync();
-        try { return await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, (previous.PlayerId, previous.Token)); }
+        try { return await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, (previous.PlayerId, previous.Token), mods: mods); }
         catch (ServerRejectedException ex)
         {
             Status("Ancien compte refusé (" + ProtocolErrors.French(ex.Code, ex.Message) + ") : nouveau compte conservé.");
-            return await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, (hello.PlayerId, hello.Token));
+            return await MultiplayerLink.ConnectAsync(address, settings.PlayerName, dlcs, password, (hello.PlayerId, hello.Token), mods: mods);
         }
     }
 

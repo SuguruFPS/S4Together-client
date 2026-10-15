@@ -48,6 +48,7 @@ public static class ProtocolErrors
         "muted" => "Tu es réduit au silence sur ce serveur pour le moment.",
         "build_suspended" => "Ta construction est suspendue sur ce serveur pour le moment.",
         "banned" => "Tu es banni de ce serveur.",
+        "mods_required" => "Il te manque des mods du serveur (ou une ancienne version). Reconnecte-toi avec Les Sims 4 fermé pour les installer.",
         "sanction_inactive" => "Cette sanction est déjà levée ou expirée.",
         "sanction_limit" => "Trop de sanctions actives enregistrées sur ce serveur.",
         "not_found" => "Élément introuvable sur le serveur.",
@@ -88,7 +89,7 @@ public sealed class ServerSession : IAsyncDisposable
     ServerSession(WebSocket socket) => this.socket = socket;
 
     public static async Task<ServerSession> ConnectAsync(ServerAddress address, string name, IReadOnlyList<string> dlcs,
-        string? password, (string PlayerId, string Token)? identity, CancellationToken cancel = default)
+        string? password, (string PlayerId, string Token)? identity, CancellationToken cancel = default, IReadOnlyList<ServerModDeclaration>? mods = null)
     {
         address.RequireSafeTransport();
         var client = new ClientWebSocket();
@@ -110,6 +111,8 @@ public sealed class ServerSession : IAsyncDisposable
         var payload = new JsonObject { ["name"] = name, ["dlcs"] = new JsonArray(dlcs.Select(d => (JsonNode)d).ToArray()), ["transportChunking"] = 1 };
         if (!string.IsNullOrEmpty(password)) payload["password"] = password;
         if (identity is { } id) { payload["playerId"] = id.PlayerId; payload["token"] = id.Token; }
+        if (mods is { Count: > 0 })
+            payload["mods"] = new JsonArray(mods.Select(m => (JsonNode)new JsonObject { ["id"] = m.Id, ["version"] = m.Version, ["hash"] = m.Hash }).ToArray());
         ServerReply reply;
         try { reply = await session.RequestAsync("hello", payload, cancel: cancel); }
         catch { await session.DisposeAsync(); throw; }
