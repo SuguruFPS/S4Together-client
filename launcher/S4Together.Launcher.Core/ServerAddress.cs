@@ -133,16 +133,26 @@ public static class HealthProbe
             ? new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false, UseCookies = false }) { Timeout = timeout }
             : new HttpClient(handler, false) { Timeout = timeout };
         var watch = System.Diagnostics.Stopwatch.StartNew();
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        deadline.CancelAfter(timeout);
         string body;
         try
         {
-            using var response = await client.GetAsync(address.HealthUri, HttpCompletionOption.ResponseHeadersRead, cancel);
+            using var response = await client.GetAsync(address.HealthUri, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
             if (!response.IsSuccessStatusCode) return NotS4T("Un service répond sur ce port, mais ce n'est pas un serveur S4Together.");
-            var bytes = await response.Content.ReadAsByteArrayAsync(cancel);
-            if (bytes.Length > MaxBody) return NotS4T("Réponse trop grande : ce n'est pas un serveur S4Together.");
-            body = System.Text.Encoding.UTF8.GetString(bytes);
+            if (response.Content.Headers.ContentLength > MaxBody) return NotS4T("Réponse trop grande : ce n'est pas un serveur S4Together.");
+            await using var stream = await response.Content.ReadAsStreamAsync(deadline.Token);
+            using var bounded = new MemoryStream();
+            var block = new byte[MaxBody + 1];
+            int read;
+            while ((read = await stream.ReadAsync(block, deadline.Token)) > 0)
+            {
+                if (bounded.Length + read > MaxBody) return NotS4T("Réponse trop grande : ce n'est pas un serveur S4Together.");
+                bounded.Write(block, 0, read);
+            }
+            body = System.Text.Encoding.UTF8.GetString(bounded.ToArray());
         }
-        catch (TaskCanceledException) when (!cancel.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
         {
             return new(HealthCode.Timeout, "Le serveur ne répond pas (délai dépassé) : PC serveur allumé ? pare-feu ? bonne IP ?");
         }
@@ -158,6 +168,7 @@ public static class HealthProbe
         {
             return new(HealthCode.Unreachable, "Connexion impossible : vérifie l'IP, le port, et que le serveur écoute sur le réseau.");
         }
+        catch (IOException) { return new(HealthCode.Unreachable, "Réponse du serveur interrompue."); }
         var latency = watch.ElapsedMilliseconds;
         try
         {

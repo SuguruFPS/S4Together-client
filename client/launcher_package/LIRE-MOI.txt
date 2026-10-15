@@ -1,4 +1,11 @@
-S4Together 0.1.43-game-test — mod de test, launcher 0.1.43 (serveur recommandé 0.1.31). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.44-game-test — mod de test, launcher 0.1.44 (serveur recommandé 0.1.33). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES0.1.44
+Serveurs : favoris en premier, catalogue public volontaire dessous. Serveur prive en bas a droite ouvre adresse/port/mot de passe/Rejoindre/Favori. Les adresses privees restent locales.
+Garde connexion : ping5s/deadline5s ; couper le lien ferme la session et le pont. Avec serveur33, bail inactif negocie15s maximum. Reduire dans la notification garde la connexion ; Quitter ferme reellement le launcher.
+Le foyer multijoueur deja confirme est mis en pause a la coupure. Au retour : restauration des fonds confirmes serveur, puis nouveau join. Ceci ne restaure PAS la totalite de la sauvegarde, des maisons ou attributs du Sim ; aucune sauvegarde .save n'est remplacee.
+Serveur33 : cadence de poses250ms negociee, ancien serveur1000ms ; une pose en vol et ACK durable conserves. Meubles/maisons/animations/heure/meteo/vitesse restent ouverts. Pause et rendu reels : NOT_TESTED_GAME.
+
 
 MODS SERVEUR 0.1.43
 Installation automatique des mods publies a la connexion, jeu ferme. Au depart : Garder ou Retirer les mods. Retrait differe jusqu a fermeture du jeu, repris au prochain lancement si necessaire. Gestion accessible dans Parametres. Fichiers personnels et modifies preserves. Cadre des portraits transparent, selection verte conservee.

@@ -4,6 +4,7 @@ API vérifiée dans simulation.zip 1.128 : alarms.add_alarm_real_time(owner, tim
 repeating, ...), date_and_time.TimeSpan et date_and_time.TICKS_PER_REAL_WORLD_SECOND.
 """
 from .journal import log
+from .disconnect_guard import DisconnectGuard
 
 POLL_SECONDS = 1
 NETWORK_SECONDS = .25
@@ -27,7 +28,8 @@ class AutoLink:
     def __init__(self, runtime, load_settings, scheduler=game_scheduler, cancel=game_cancel, play_intent=None, season_sync=None,
                  character_sync=None, presence_sync=None, home_sync=None, appearance_sync=None, remote_households=None,
                  remote_motion=None, interaction_observer=None, interaction_publisher=None,
-                 terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None, native_probe=None):
+                 terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None, native_probe=None,
+                 disconnect_guard=None):
         self.runtime = runtime
         self.offline_guard = offline_guard
         self.interaction_observer = interaction_observer
@@ -54,6 +56,10 @@ class AutoLink:
         self.native_probe = native_probe
         self.native_probe_done = False
         self.network_ticks = 0
+        if disconnect_guard is None:
+            from .notify import game_notify
+            disconnect_guard = DisconnectGuard(notify=game_notify)
+        self.disconnect_guard = disconnect_guard
 
     def _native_probe(self, status, loaded):
         # Diagnostic en lecture seule, une tentative par session du jeu, après confirmation native.
@@ -83,6 +89,10 @@ class AutoLink:
         if settings.get('launcher_bridge') is not True:
             # Solo : mod passif. Un relevé armé quand le launcher était actif ne doit pas survivre.
             self._leave('passive')
+            try:
+                self.disconnect_guard.reset()
+            except Exception as error:
+                log('network_safety', type(error).__name__)
             self.stop()
             return False
         if self.play_intent is not None and 'solo_guard' not in settings:
@@ -491,6 +501,13 @@ class AutoLink:
             self._remote(manager, status, observation)
             self._offline(manager, status, observation.get('loaded'))
             self._presence(manager, status, observation.get('loaded'))
+            sync, presence = self.character_sync, self.presence_sync
+            try:
+                self.disconnect_guard.update(bool(status.get('authenticated')), bool(observation.get('loaded')),
+                                             getattr(sync, 'character', None) if getattr(sync, 'state', None) == 'bound' else None,
+                                             getattr(presence, 'state', None) == 'joined')
+            except Exception as error:
+                log('network_safety', type(error).__name__)
             self._native_probe(status, observation.get('loaded'))
             try:
                 self._terrain(manager, status, observation.get('loaded'))

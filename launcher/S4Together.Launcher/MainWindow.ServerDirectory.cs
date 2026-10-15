@@ -3,12 +3,14 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Data;
 using S4Together.Launcher.Core;
 
 namespace S4Together.Launcher;
 
 public sealed record ServerDirectoryRow(KnownServer Server, HealthResult? Health)
 {
+    public string Group => Server.Favorite ? "Favoris" : "Serveurs publics";
     public string Endpoint => Server.Endpoint;
     public string DisplayEndpoint => Server.Address.DisplayEndpoint;
     public string Title => (Server.Favorite ? "★ " : "") + Server.DisplayName;
@@ -63,6 +65,7 @@ public partial class MainWindow
         catch (FormatException) { PasswordBox.Password = ""; RememberBox.IsChecked = false; }
         HostBox.TextChanged += ServerEndpoint_Changed;
         PortBox.TextChanged += ServerEndpoint_Changed;
+        Loaded += async (_, _) => { await RefreshPublicCatalogAsync(); RefreshDirectory(); };
         RefreshDirectory();
     }
 
@@ -88,9 +91,11 @@ public partial class MainWindow
     void RefreshDirectory()
     {
         var selected = (ServerDirectoryList.SelectedItem as ServerDirectoryRow)?.Endpoint;
-        var rows = ServerDirectory.Visible(settings.KnownServers)
+        var rows = PublicServerCatalog.Display(settings.KnownServers, publicServers)
             .Select(s => new ServerDirectoryRow(s, directoryHealth.GetValueOrDefault(s.Endpoint))).ToList();
-        ServerDirectoryList.ItemsSource = rows;
+        var view = CollectionViewSource.GetDefaultView(rows);
+        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ServerDirectoryRow.Group)));
+        ServerDirectoryList.ItemsSource = view;
         if (selected is not null) ServerDirectoryList.SelectedItem = rows.FirstOrDefault(r => r.Endpoint == selected);
         DirectoryEmpty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -135,7 +140,13 @@ public partial class MainWindow
     void DirectoryFavorite_Click(object sender, RoutedEventArgs e)
     {
         if (busy || ServerDirectoryList.SelectedItem is not ServerDirectoryRow row) return;
-        row.Server.Favorite = !row.Server.Favorite; SaveSettings(); RefreshDirectory();
+        try
+        {
+            var server = settings.KnownServers.FirstOrDefault(s => s.Endpoint == row.Endpoint)
+                ?? ServerDirectory.Remember(settings.KnownServers, row.Server.Address, row.Server.DisplayName);
+            server.Favorite = !server.Favorite; SaveSettings(); RefreshDirectory();
+        }
+        catch (InvalidOperationException ex) { ServerStatus.Text = ex.Message; }
     }
 
     void DirectoryRemove_Click(object sender, RoutedEventArgs e)
@@ -151,9 +162,10 @@ public partial class MainWindow
         refreshingDirectory = true; DirectoryRefreshButton.IsEnabled = false;
         try
         {
+            await RefreshPublicCatalogAsync();
             using var concurrency = new SemaphoreSlim(4);
             var renamed = false;
-            await Task.WhenAll(ServerDirectory.Visible(settings.KnownServers).Select(async server =>
+            await Task.WhenAll(PublicServerCatalog.Display(settings.KnownServers, publicServers).Select(async server =>
             {
                 await concurrency.WaitAsync();
                 try

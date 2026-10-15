@@ -354,3 +354,9 @@ Le mécanisme actuel est une demande de visite envoyée volontairement par le vi
 
 Client38 : tous les proxies reconnus par la description du foyer S4T sont exclus des filtres sociaux, même quand leur joueur est en ligne. Veto de `BaseDramaNode.run` installé avant la première zone et relisant le marqueur du foyer ; aucune dépendance au premier tick pour un expéditeur identifié. Les vrais PNJ passent par le comportement original. Les surcharges de `run`, les dialogues déjà affichés et leur acceptation/voyage restent à vérifier ; aucune protection complète ni UI événement autorisée revendiquée par ce lot.
 
+# Cadence native négociée (client0.1.44 / serveur0.1.33)
+
+L'ACK authentifié de `game.join` peut fournir `stateIntervalMs` (entier250–1000). Le mod adopte cette cadence minimale après confirmation du join ; champ absent, booléen ou invalide =1000ms compatible avec les anciens serveurs. Une seule requête `game.state` en vol, temporisation monotone après ACK et identifiant de flux courant restent obligatoires. Le serveur applique sa propre limite, conserve le dernier état durable avant ACK/diffusion et refuse stockage indisponible, ancien flux/session et mutation hors propriété. Valeur configurable `Server.PoseIntervalMilliseconds`, défaut250, bornes250–1000 ; ne pas promettre4Hz si le stockage/réseau est plus lent.
+
+Un heartbeat launcher `ping` toutes les5secondes doit recevoir son ACK sous5secondes ; refus/expiration ferme le socket et le pont mod. Une perte réseau ne peut être détectée instantanément ; le délai inactif serveur reste une seconde protection. La reprise exige nouvelle authentification, nouveau flux et restauration du checkpoint du personnage lié. Aucun rejeu automatique de poses anciennes ni restauration brute de fichier `.save`.
+

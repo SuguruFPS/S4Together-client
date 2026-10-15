@@ -90,6 +90,7 @@ class PresenceSync:
         self._clear()
 
     def _clear(self):
+        self.state_seconds = STATE_SECONDS
         self.state = 'idle'
         self.reason = None
         self.key = None
@@ -269,7 +270,7 @@ class PresenceSync:
         if not poses or poses == self.sent_poses:
             return None
         now = self.clock()
-        if any(mark is not None and now - mark < STATE_SECONDS for mark in (self.anchor, self.last_state)):
+        if any(mark is not None and now - mark < self.state_seconds for mark in (self.anchor, self.last_state)):
             return None
         payload = {'poses': poses}
         if self.stream_id is not None:
@@ -395,6 +396,9 @@ class PresenceSync:
         self.state, self.key, self.joined, self.zone_id = 'joined', key, sent, expected
         stream = payload.get('streamId', presence.get('streamId'))
         self.stream_id = stream if isinstance(stream, str) and 1 <= len(stream) <= 64 else None
+        interval = payload.get('stateIntervalMs')
+        if type(interval) is int and 250 <= interval <= 1000:
+            self.state_seconds = interval / 1000.0
         self.anchor = self.clock()
         self._view(payload)
         scene = dict(payload)

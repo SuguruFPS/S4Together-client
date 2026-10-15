@@ -195,6 +195,8 @@ class CharacterSync:
         # Argent du foyer au dernier tick lié. Survit à reset() : il distingue un voyage (même argent en
         # mémoire du jeu) d'une partie rechargée, seul cas où le checkpoint serveur doit être restauré.
         self.last_seen = None
+        self.recovery_required = False
+        self.restore_failed = False
         # Informations déjà affichées dans cette session de jeu. Survit à reset() : un voyage ne les répète pas.
         self.informed = set()
         # Blocages par la garde solo depuis le lancement du jeu (diagnostic).
@@ -216,6 +218,12 @@ class CharacterSync:
 
     def tick(self, manager, authenticated, loaded):
         if not authenticated:
+            if self.character is not None and self.character.get('status') == 'bound' and not self.recovery_required:
+                self.recovery_required = True
+                try:
+                    self.store.mark_character(self.character['characterId'] + '/recover', 'required')
+                except (OSError, ValueError) as error:
+                    log('character_recovery', type(error).__name__)
             if self.state != 'idle':
                 self.reset()
             return None
@@ -378,7 +386,26 @@ class CharacterSync:
             self.waiting = (pending['id'], 'character.bind')
             self.state = 'binding'
             return
-        restored = self._restore(payload.get('checkpoint'), observed)
+        if self.store.character_marker(character['characterId'] + '/recover') == 'required':
+            self.recovery_required = True
+        checkpoint = payload.get('checkpoint')
+        if self.recovery_required and checkpoint is None and type(character.get('money')) is int:
+            # Première coupure avant le premier checkpoint : le bind confirmé porte déjà les fonds serveur.
+            checkpoint = {'funds': character['money'], 'lastGameWorld': character.get('gameWorld')}
+        restored = self._restore(checkpoint, observed)
+        if self.restore_failed:
+            self.state = 'recovery_blocked'
+            self._inform('recovery/' + character['characterId'],
+                         'Reprise sécurisée en attente : le dernier état serveur ne peut pas être restauré. Aucun progrès local envoyé.')
+            return
+        if self.recovery_required:
+            try:
+                self.store.mark_character(character['characterId'] + '/recover', 'done')
+            except (OSError, ValueError) as error:
+                log('character_recovery', type(error).__name__)
+                self.state = 'recovery_blocked'
+                return
+        self.recovery_required = False
         self.state = 'bound'
         if restored is not None:
             # Le jeu a été modifié : toujours signalé.
@@ -410,12 +437,16 @@ class CharacterSync:
     def _restore(self, checkpoint, observed):
         # Reprise : les fonds du checkpoint serveur font foi après un rechargement de partie (solo, autre PC…).
         # Un voyage garde l'argent du jeu, plus récent que le checkpoint : le prochain checkpoint l'enverra.
-        if not isinstance(checkpoint, dict) or type(checkpoint.get('funds')) is not int:
+        self.restore_failed = False
+        if (not isinstance(checkpoint, dict) or type(checkpoint.get('funds')) is not int
+                or not 0 <= checkpoint['funds'] <= MAX_FUNDS):
+            self.restore_failed = self.recovery_required
             return None
         self.last_sent = (checkpoint['funds'], checkpoint.get('lastGameWorld'))
-        if checkpoint['funds'] == observed['funds'] or observed['funds'] == self.last_seen:
+        if checkpoint['funds'] == observed['funds'] or (not self.recovery_required and observed['funds'] == self.last_seen):
             return None
         if not self._apply(self.set_funds, checkpoint['funds']):
+            self.restore_failed = True
             return None
         log('character', 'funds_restored')
         return checkpoint['funds']

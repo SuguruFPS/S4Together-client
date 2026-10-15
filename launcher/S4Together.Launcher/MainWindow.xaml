@@ -81,25 +81,38 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- Serveur -->
-      <ScrollViewer x:Name="PageServer" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
-        <StackPanel MaxWidth="1000" HorizontalAlignment="Left">
+      <!-- Catalogue : favoris privés/publics en tête, connexion directe séparée. -->
+      <Grid x:Name="PageServer" Visibility="Collapsed">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel>
           <TextBlock Style="{StaticResource H1}" Text="Serveurs"/>
-          <TextBlock Style="{StaticResource Muted}" Text="Tes serveurs enregistrés sur ce PC. Double-clique sur une fiche pour te connecter." Margin="0,0,0,10"/>
-          <ListBox x:Name="ServerDirectoryList" MinHeight="90" MaxHeight="260" MouseDoubleClick="Directory_DoubleClick" SelectionChanged="Directory_SelectionChanged" KeyDown="Directory_KeyDown">
-            <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="8,6">
+          <TextBlock Style="{StaticResource Muted}" Text="Tes favoris en premier, puis les serveurs publiés dans le catalogue. Double-clique pour rejoindre." Margin="0,0,0,10"/>
+          <WrapPanel Margin="0,0,0,10">
+            <Button x:Name="DirectoryRefreshButton" Content="Actualiser" Click="DirectoryRefresh_Click"/>
+            <Button Content="Favori ★" Click="DirectoryFavorite_Click"/>
+            <Button Content="Retirer la fiche locale" Click="DirectoryRemove_Click"/>
+          </WrapPanel>
+          <TextBlock x:Name="CatalogStatus" Style="{StaticResource Muted}" Margin="0,0,0,8"/>
+        </StackPanel>
+        <Grid Grid.Row="1">
+          <ListBox x:Name="ServerDirectoryList" MinHeight="90" MouseDoubleClick="Directory_DoubleClick" SelectionChanged="Directory_SelectionChanged" KeyDown="Directory_KeyDown">
+            <ListBox.GroupStyle><GroupStyle><GroupStyle.HeaderTemplate><DataTemplate><TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="0,14,0,8"/></DataTemplate></GroupStyle.HeaderTemplate></GroupStyle></ListBox.GroupStyle><ListBox.ItemTemplate><DataTemplate><StackPanel Margin="8,6">
               <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
               <TextBlock Text="{Binding DisplayEndpoint}" FontSize="12"/>
               <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
             </StackPanel></DataTemplate></ListBox.ItemTemplate>
           </ListBox>
-          <TextBlock x:Name="DirectoryEmpty" Style="{StaticResource Muted}" Text="Aucun serveur enregistré. Ajoute l'adresse de ton hébergeur ci-dessous." Margin="0,6"/>
-          <WrapPanel Margin="0,8,0,16">
-            <Button x:Name="DirectoryRefreshButton" Content="Actualiser les serveurs" Click="DirectoryRefresh_Click"/>
-            <Button Content="Favori ★" Click="DirectoryFavorite_Click"/>
-            <Button Content="Retirer la fiche" Click="DirectoryRemove_Click"/>
-          </WrapPanel>
-          <TextBlock Style="{StaticResource H2}" Text="Ajouter un serveur ou saisir son adresse"/>
+
+          <TextBlock x:Name="DirectoryEmpty" Style="{StaticResource Muted}" Text="Aucun serveur public publié ni favori. Utilise Serveur privé pour saisir une adresse." VerticalAlignment="Center" HorizontalAlignment="Center" Margin="12"/>
+        </Grid>
+        <DockPanel Grid.Row="2" Margin="0,16,0,0">
+          <Button DockPanel.Dock="Right" Content="Serveur privé…" Click="PrivateServer_Click" Style="{StaticResource Primary}" Margin="14,0,0,0"/>
+          <Button x:Name="CatalogDisconnectButton" DockPanel.Dock="Right" Content="Se déconnecter" Click="CatalogDisconnect_Click" Visibility="Collapsed" Margin="14,0,0,0"/>
+          <TextBlock x:Name="ServerStatus" FontSize="14" VerticalAlignment="Center"/>
+        </DockPanel>
+        <ContentControl x:Name="PrivateServerFormHost" Visibility="Collapsed">
+          <StackPanel x:Name="PrivateServerForm">
+          <TextBlock Style="{StaticResource H2}" Text="Connexion à un serveur privé"/>
           <TextBlock Text="Nom du serveur (facultatif)" Margin="0,0,0,4"/>
           <TextBox x:Name="ServerLabelBox" MaxLength="80" ToolTip="Nom de la fiche, par exemple Mon serveur" Margin="0,0,0,8"/>
           <Border Style="{StaticResource CardBorder}">
@@ -120,13 +133,14 @@
           <TextBlock Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,12"
                      Text="Saisis l'IP ou le nom du serveur et son port. La connexion Internet est chiffrée automatiquement."/>
           <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-            <Button Content="Enregistrer cette adresse" Click="DirectorySave_Click"/>
+            <Button Content="Ajouter aux favoris ★" Click="PrivateFavorite_Click"/>
             <Button Content="Tester le serveur" Click="Test_Click"/>
-            <Button x:Name="ConnectButton" Style="{StaticResource Primary}" Content="Se connecter" Click="Connect_Click"/>
+            <Button x:Name="ConnectButton" Style="{StaticResource Primary}" Content="Rejoindre" Click="Connect_Click"/>
           </StackPanel>
-          <TextBlock x:Name="ServerStatus" FontSize="14"/>
-        </StackPanel>
-      </ScrollViewer>
+
+          </StackPanel>
+        </ContentControl>
+      </Grid>
 
       <!-- Le bouton reste visible : seule la collection et les détails défilent. -->
       <Grid x:Name="PageSim" Visibility="Collapsed">

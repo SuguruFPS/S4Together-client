@@ -1,3 +1,12 @@
+# Client Windows de test 0.1.44
+
+Favoris en tete, catalogue public volontaire et connexion privee centrale. Catalogue initial vide : aucune IP privee publiee. Detection de coupure, pause du foyer lie et reprise des fonds confirmes ; aucune restauration complete de sauvegarde. Mods Garder/Retirer et cartes transparentes conserves.
+
+Avec serveur0.1.33 : bail de session15s et cadence250ms negociee ; anciens serveurs compatibles a1Hz. Serveur33 prepare, non deploye. NOT_TESTED_GAME : pause native, animations, meubles/maisons et heure/meteo/vitesse restent a valider ou corriger.
+
+102tests launcher,186serveur,1271Python PASS/1SKIP ; paquet et vrai demarrage WPF PASS.
+
+---
 # Client de test 0.1.43
 
 Mods du serveur installes automatiquement jeu ferme. Au depart : Garder ou Retirer ; retrait differe et repris au prochain lancement. Parametres permet de gerer ce choix. Fichiers personnels/modifies preserves. Cadres des portraits transparents.

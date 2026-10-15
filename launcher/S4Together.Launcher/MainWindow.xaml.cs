@@ -141,6 +141,8 @@ public partial class MainWindow : Window
         HomeBridge.Text = link is null ? "Inactive (connexion au serveur requise)."
             : link.Bridge.ModConnected ? "Le jeu est relié au launcher." : $"Prête sur le port {link.Bridge.Port} : en attente du jeu.";
         ConnectButton.Content = link is null ? "Se connecter" : "Se déconnecter";
+        CatalogDisconnectButton.Visibility = link is null ? Visibility.Collapsed : Visibility.Visible;
+        CatalogDisconnectButton.IsEnabled = !busy;
         PlayHint.Text = PlayReadiness();
         NavStatus.Text = link is null ? "Hors ligne" : "En ligne";
         NavCharacters.Visibility = NavCommunity.Visibility = NavDiagnostic.Visibility = link is null ? Visibility.Collapsed : Visibility.Visible;
@@ -217,7 +219,7 @@ public partial class MainWindow : Window
     async void Connect_Click(object sender, RoutedEventArgs e)
     {
         if (link is not null) { await DisconnectAsync("Déconnecté."); return; }
-        await ConnectAsync();
+        if (await ConnectAsync()) privateServerDialog?.Close();
     }
 
     Task<bool> ConnectAsync() => ConnectServerAsync(fromDirectory: false);

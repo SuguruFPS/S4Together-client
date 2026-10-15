@@ -68,7 +68,8 @@ public sealed class ServerSession : IAsyncDisposable
 {
     public const int MaxMessageBytes = 1 << 20;
     static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
-    static readonly TimeSpan PingInterval = TimeSpan.FromSeconds(20);
+    static readonly TimeSpan PingInterval = TimeSpan.FromSeconds(5);
+    static readonly TimeSpan PingTimeout = TimeSpan.FromSeconds(5);
 
     readonly WebSocket socket;
     readonly SemaphoreSlim sendLock = new(1, 1);
@@ -108,7 +109,7 @@ public sealed class ServerSession : IAsyncDisposable
         }
         var session = new ServerSession(client);
         session.Start();
-        var payload = new JsonObject { ["name"] = name, ["dlcs"] = new JsonArray(dlcs.Select(d => (JsonNode)d).ToArray()), ["transportChunking"] = 1 };
+        var payload = new JsonObject { ["name"] = name, ["dlcs"] = new JsonArray(dlcs.Select(d => (JsonNode)d).ToArray()), ["transportChunking"] = 1, ["heartbeatSeconds"] = 5 };
         if (!string.IsNullOrEmpty(password)) payload["password"] = password;
         if (identity is { } id) { payload["playerId"] = id.PlayerId; payload["token"] = id.Token; }
         if (mods is { Count: > 0 })
@@ -148,10 +149,13 @@ public sealed class ServerSession : IAsyncDisposable
         if (!pending.TryAdd(id, waiter)) throw new InvalidOperationException("Identifiant de requête déjà en attente.");
         try
         {
-            await SendRawAsync(envelope, cancel);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel, life.Token);
             timeout.CancelAfter(RequestTimeout);
-            try { return await waiter.Task.WaitAsync(timeout.Token); }
+            try
+            {
+                await SendRawAsync(envelope, timeout.Token);
+                return await waiter.Task.WaitAsync(timeout.Token);
+            }
             catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
             {
                 throw new ServerRejectedException(life.IsCancellationRequested ? "disconnected" : "timeout",
@@ -213,10 +217,18 @@ public sealed class ServerSession : IAsyncDisposable
             while (!life.IsCancellationRequested)
             {
                 await Task.Delay(PingInterval, life.Token);
-                await RequestAsync("ping", cancel: life.Token);
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(life.Token);
+                deadline.CancelAfter(PingTimeout);
+                var reply = await RequestAsync("ping", cancel: deadline.Token);
+                if (!reply.Ok) throw new ServerRejectedException(reply.Code, "Heartbeat refused");
             }
         }
-        catch (Exception e) when (e is OperationCanceledException or ServerRejectedException or WebSocketException or InvalidOperationException) { }
+        catch (Exception e) when (e is OperationCanceledException or ServerRejectedException or WebSocketException or InvalidOperationException or IOException)
+        {
+            // Un ping perdu ne doit pas laisser une session fantôme et un pont mod encore authentifié.
+            life.Cancel();
+            socket.Abort(); // Réveille ReceiveAsync, qui invalide les requêtes et prévient le pont/UI une fois.
+        }
     }
 
     /// <summary>Lit un message texte complet, borné ; null si fermeture.</summary>
