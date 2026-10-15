@@ -1,3 +1,8 @@
+# Client0.1.45 — portraits transparents
+
+Le blanc relie aux bords des portraits devient transparent uniquement a l affichage. Originaux preserves ; les details blancs internes restent visibles. Fonds colores non detoures.104tests launcher et paquet/WPF PASS. Rendu sur portraits joueurs a confirmer. Serveur0.1.33 inchange.
+
+---
 # Client Windows de test 0.1.44
 
 Favoris en tete, catalogue public volontaire et connexion privee centrale. SuguruSims est inscrit volontairement dans le catalogue public ; aucune adresse LAN publiee. Detection de coupure, pause du foyer lie et reprise des fonds confirmes ; aucune restauration complete de sauvegarde. Mods Garder/Retirer et cartes transparentes conserves.

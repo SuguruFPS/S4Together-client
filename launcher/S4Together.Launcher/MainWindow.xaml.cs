@@ -822,11 +822,21 @@ public partial class MainWindow : Window
         finally { scanningLocalSims = false; ScanLocalSimsButton.IsEnabled = true; RefreshAll(); }
     }
 
-    static BitmapImage DecodePortrait(byte[] data)
+    static BitmapSource DecodePortrait(byte[] data)
     {
         using var stream = new MemoryStream(data);
         var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.DecodePixelWidth = 640; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze(); return bitmap;
+        bitmap.DecodePixelWidth = 640; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze();
+        // Transformer uniquement la copie affichée ; les images des sauvegardes restent intactes.
+        var source = new FormatConvertedBitmap(bitmap, PixelFormats.Bgra32, null, 0);
+        int width = source.PixelWidth, height = source.PixelHeight;
+        if ((long)width * height > 4_000_000) return bitmap;
+        int stride = checked(width * 4);
+        var pixels = new byte[checked(stride * height)];
+        source.CopyPixels(pixels, stride, 0);
+        PortraitBackground.ClearBorderWhite(pixels, width, height);
+        var result = BitmapSource.Create(width, height, source.DpiX, source.DpiY, PixelFormats.Bgra32, null, pixels, stride);
+        result.Freeze(); return result;
     }
 
     async Task LoadCardPortraitsAsync(List<LocalSimCard> cards)
