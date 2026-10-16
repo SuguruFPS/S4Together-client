@@ -17,6 +17,7 @@ CHECKPOINT_TICKS = 2
 REFRESH_LOCAL_TICKS = 2
 REFRESH_TICKS = 30
 RETRY_TICKS = 5
+MAX_APPLY_ATTEMPTS = 3
 FLIGHT_TICKS = 30
 MAX_STALE = 3
 MAX_REMOTE = 16
@@ -399,7 +400,12 @@ class TerrainSync:
             return
         lot_id = local.get('lotId')
         entry = self.remote.get(lot_id)
-        if entry is None or lot_id == own or entry['applied'] or entry['blocked'] not in (None, 'ownership', 'local_read'):
+        if entry is None or lot_id == own or entry['applied'] or entry['blocked'] not in (None, 'ownership', 'local_read', 'apply_failed'):
+            return
+        # L'échec natif n'est pas définitif : trois essais espacés par révision,
+        # toujours avec une nouvelle lecture et les mêmes contrôles de propriété.
+        if (entry.get('attempts', 0) >= MAX_APPLY_ATTEMPTS
+                or self.ticks < entry.get('retryAt', 0)):
             return
         expected = allowed.get(lot_id) if isinstance(allowed, dict) else None
         if expected is None or local.get('ownerHouseholdId') not in expected:
@@ -419,6 +425,7 @@ class TerrainSync:
                     self._reject('local_read')
                 entry['blocked'] = 'local_read'
                 return
+            entry['attempts'] = entry.get('attempts', 0) + 1
             done = self.apply(local.get('zoneId'), terrain.plan(content['objects'], entry['snapshot']['objects']))
         except Exception as error:
             log('terrain_apply', type(error).__name__)
@@ -426,6 +433,7 @@ class TerrainSync:
         entry['applied'] = done is True
         if not entry['applied']:
             entry['blocked'] = 'apply_failed'
+            entry['retryAt'] = self.ticks + RETRY_TICKS
 
     def status(self):
         """Diagnostic sans contenu de terrain."""

@@ -89,11 +89,25 @@ public sealed class ModInstaller(string backupRoot, Func<bool>? gameRunning = nu
 
     static void RefuseRedirected(string root, string file)
     {
+        if (File.Exists(file) && File.GetAttributes(file).HasFlag(FileAttributes.ReparsePoint))
+            throw new InstallRefusedException("Fichier du mod redirigé : opération refusée.");
         for (var dir = new DirectoryInfo(Path.GetDirectoryName(file)!); dir is not null && dir.FullName.TrimEnd('\\').Length >= root.Length; dir = dir.Parent)
             if (dir.Attributes.HasFlag(FileAttributes.ReparsePoint)) throw new InstallRefusedException("Ancien mod dans un dossier redirigé : opération refusée.");
     }
 
-    /// <summary>Installe ou répare : sauvegarde puis retire les anciennes copies, copie la version vérifiée. Aucun autre mod ni sauvegarde touché.</summary>
+    static void Writable(string file)
+    {
+        if (File.Exists(file)) File.SetAttributes(file, File.GetAttributes(file) & ~FileAttributes.ReadOnly);
+    }
+
+    static void DeleteTemporary(string file)
+    {
+        try { if (File.Exists(file)) { Writable(file); File.Delete(file); } }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    /// <summary>Prépare et vérifie toutes les copies avant remplacement. Un refus restaure les fichiers suivis.</summary>
     public string Install(string mods, ModPackage package)
     {
         Guard(mods);
@@ -102,29 +116,113 @@ public sealed class ModInstaller(string backupRoot, Func<bool>? gameRunning = nu
         var targetDir = Path.Combine(root, TargetFolder);
         if (Directory.Exists(targetDir) && new DirectoryInfo(targetDir).Attributes.HasFlag(FileAttributes.ReparsePoint))
             throw new InstallRefusedException("Dossier redirigé refusé : choisis le dossier réel.");
+        // Vérifier la source AVANT de retirer la moindre ancienne copie.
+        if (!string.Equals(FileHash(package.ScriptPath), package.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new InstallRefusedException("Le mod fourni est altéré : ancienne version conservée. Retélécharge le launcher.");
+        Directory.CreateDirectory(targetDir);
         var old = LegacyCopies(root);
         var target = Path.Combine(targetDir, ScriptName);
+        var manifest = Path.Combine(targetDir, ManifestName);
+        if (Directory.Exists(target) || Directory.Exists(manifest))
+            throw new InstallRefusedException("Un dossier occupe le nom du fichier du mod. Installation refusée ; aucun fichier supprimé.");
         if (File.Exists(target)) old.Add(target);
         old.ForEach(f => RefuseRedirected(root, f));
         var backup = Path.Combine(backupRoot, DateTime.UtcNow.ToString("yyyyMMddHHmmss") + "-" + Guid.NewGuid().ToString("N")[..8]);
-        foreach (var file in old)
+        var saved = new Dictionary<string, (string File, string Hash, FileAttributes Attributes)>(StringComparer.OrdinalIgnoreCase);
+        if (File.Exists(manifest)) RefuseRedirected(root, manifest);
+        var oldManifest = File.Exists(manifest) ? File.ReadAllBytes(manifest) : null;
+        var oldManifestAttributes = File.Exists(manifest) ? File.GetAttributes(manifest) : FileAttributes.Normal;
+        var temporary = target + ".new-" + Guid.NewGuid().ToString("N");
+        var temporaryManifest = manifest + ".new-" + Guid.NewGuid().ToString("N");
+        var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(new { version = package.Version, sha256 = package.Sha256, file = ScriptName });
+        bool targetChanged = false, manifestChanged = false, completed = false;
+        var removed = new List<string>();
+        try
         {
-            Directory.CreateDirectory(backup);
-            File.Copy(file, Path.Combine(backup, Guid.NewGuid().ToString("N") + ".ts4script"));
-            File.Delete(file);
+            foreach (var file in old)
+            {
+                Directory.CreateDirectory(backup);
+                var copy = Path.Combine(backup, Guid.NewGuid().ToString("N") + ".ts4script");
+                var hash = FileHash(file);
+                File.Copy(file, copy);
+                if (FileHash(copy) != hash) throw new InstallRefusedException("Sauvegarde du mod non vérifiée : installation annulée.");
+                saved[file] = (copy, hash, File.GetAttributes(file));
+            }
+            if (oldManifest is not null)
+            {
+                var metadata = Path.Combine(backup, "metadata"); Directory.CreateDirectory(metadata);
+                File.WriteAllBytes(Path.Combine(metadata, ManifestName), oldManifest);
+            }
+            File.Copy(package.ScriptPath, temporary);
+            Writable(temporary);
+            if (!string.Equals(FileHash(temporary), package.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new InstallRefusedException("Copie du mod corrompue : ancienne version conservée.");
+            File.WriteAllBytes(temporaryManifest, manifestBytes);
+            Guard(mods);
+            // Pré-vol de toutes les anciennes copies : détecter un verrou avant de remplacer quoi que ce soit.
+            foreach (var file in old)
+            {
+                if (FileHash(file) != saved[file].Hash) throw new InstallRefusedException("Le mod a changé pendant sa mise à jour.");
+                Writable(file);
+                using var access = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            }
+            if (File.Exists(manifest))
+            {
+                if (oldManifest is null || !File.ReadAllBytes(manifest).SequenceEqual(oldManifest))
+                    throw new InstallRefusedException("Le manifeste du mod a changé pendant sa mise à jour.");
+                Writable(manifest);
+                using var access = new FileStream(manifest, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            }
+            if (File.Exists(target)) File.Replace(temporary, target, null);
+            else File.Move(temporary, target);
+            targetChanged = true;
+            File.Move(temporaryManifest, manifest, true); manifestChanged = true;
+            foreach (var file in old.Where(f => !f.Equals(target, StringComparison.OrdinalIgnoreCase)))
+            { File.Delete(file); removed.Add(file); }
+            completed = true;
+            return old.Count > 0 ? backup : "";
         }
-        Directory.CreateDirectory(targetDir);
-        var temporary = target + ".new";
-        File.Copy(package.ScriptPath, temporary, true);
-        if (!string.Equals(FileHash(temporary), package.Sha256, StringComparison.OrdinalIgnoreCase))
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InstallRefusedException)
         {
-            File.Delete(temporary);
-            throw new InstallRefusedException("Copie du mod corrompue : installation annulée.");
+            try
+            {
+                if (targetChanged && File.Exists(target) && FileHash(target) == package.Sha256)
+                {
+                    if (saved.TryGetValue(target, out var previous))
+                    { File.Copy(previous.File, temporary, true); Writable(temporary); File.Replace(temporary, target, null); }
+                    else File.Delete(target);
+                }
+                if (manifestChanged && File.Exists(manifest) && File.ReadAllBytes(manifest).SequenceEqual(manifestBytes))
+                {
+                    if (oldManifest is null) File.Delete(manifest);
+                    else { File.WriteAllBytes(temporaryManifest, oldManifest); File.Move(temporaryManifest, manifest, true); }
+                }
+                foreach (var file in removed)
+                    if (!File.Exists(file)) File.Copy(saved[file].File, file);
+            }
+            catch (Exception rollback) when (rollback is IOException or UnauthorizedAccessException)
+            { throw new InstallRefusedException($"Windows bloque la restauration du mod. Les anciennes copies sont sauvegardées ici : {backup}"); }
+            if (error is InstallRefusedException) throw;
+            throw new InstallRefusedException("Windows refuse de remplacer le mod (fichier verrouillé ou accès protégé). " +
+                "L'ancienne version est conservée. Ferme Les Sims 4 et les autres launchers, puis réessaie. " +
+                $"Dossier concerné : {targetDir}");
         }
-        File.Move(temporary, target, true);
-        File.WriteAllText(Path.Combine(targetDir, ManifestName),
-            JsonSerializer.Serialize(new { version = package.Version, sha256 = package.Sha256, file = ScriptName }));
-        return old.Count > 0 ? backup : "";
+        finally
+        {
+            foreach (var (file, previous) in saved)
+            {
+                try { if (!(completed && file.Equals(target, StringComparison.OrdinalIgnoreCase)) && File.Exists(file) && FileHash(file) == previous.Hash) File.SetAttributes(file, previous.Attributes); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+            if (!completed && oldManifest is not null)
+            {
+                try { if (File.Exists(manifest) && File.ReadAllBytes(manifest).SequenceEqual(oldManifest)) File.SetAttributes(manifest, oldManifestAttributes); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+            DeleteTemporary(temporary); DeleteTemporary(temporaryManifest);
+        }
     }
 
     /// <summary>Mise à jour automatique d'une seule copie suivie et intacte, avec remplacement atomique.</summary>
@@ -141,37 +239,8 @@ public sealed class ModInstaller(string backupRoot, Func<bool>? gameRunning = nu
             var installedVersion=stored.GetString()?.Split('-')[0];
             if(!Version.TryParse(installedVersion,out var previous)||!Version.TryParse(package.Version.Split('-')[0],out var next)||next<previous)return false;
         }
-        if(FileHash(package.ScriptPath)!=package.Sha256)throw new InstallRefusedException("Le mod fourni est altéré : ancienne version conservée.");
-        var backup=Path.Combine(backupRoot,"auto-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(backup);
-        var saved=Path.Combine(backup,ScriptName);var savedManifest=Path.Combine(backup,ManifestName);
-        File.Copy(target,saved);File.Copy(manifest,savedManifest);
-        var pending=target+".new-"+Guid.NewGuid().ToString("N");var pendingManifest=manifest+".new-"+Guid.NewGuid().ToString("N");
-        var replaced=false;
-        try
-        {
-            File.Copy(package.ScriptPath,pending);
-            if(FileHash(pending)!=package.Sha256)throw new InstallRefusedException("Copie du mod altérée : ancienne version conservée.");
-            File.WriteAllText(pendingManifest,JsonSerializer.Serialize(new{version=package.Version,sha256=package.Sha256,file=ScriptName}));
-            Guard(mods);
-            if(FileHash(target)!=FileHash(saved))throw new InstallRefusedException("Le mod a changé pendant sa mise à jour.");
-            File.Replace(pending,target,null);replaced=true;
-            File.Move(pendingManifest,manifest,true);
-            return true;
-        }
-        catch
-        {
-            if(replaced)
-            {
-                File.Copy(saved,pending,true);File.Replace(pending,target,null);
-                File.Copy(savedManifest,manifest,true);
-            }
-            throw;
-        }
-        finally
-        {
-            if(File.Exists(pending))File.Delete(pending);
-            if(File.Exists(pendingManifest))File.Delete(pendingManifest);
-        }
+        Install(mods, package);
+        return true;
     }
 
     /// <summary>Retire uniquement une copie reconnue (à jour ou ancienne version suivie). Un fichier modifié à la main est refusé.</summary>

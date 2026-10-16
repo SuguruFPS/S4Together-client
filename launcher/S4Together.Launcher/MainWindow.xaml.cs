@@ -1095,7 +1095,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) when (ex is InstallRefusedException or IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show(this, ex.Message, "S4Together", MessageBoxButton.OK, MessageBoxImage.Warning);
+            var message = ex is InstallRefusedException ? ex.Message :
+                "Windows bloque l'accès au dossier Mods. Ferme Les Sims 4 et les autres launchers, puis réessaie. " +
+                "Si Sécurité Windows signale S4Together, consulte son historique de protection : l'accès aux dossiers protégés peut empêcher l'installation.\n\nDossier : " + ModsFolder;
+            MessageBox.Show(this, message, "S4Together", MessageBoxButton.OK, MessageBoxImage.Warning);
             RefreshAll();
             return false;
         }
@@ -1122,7 +1125,7 @@ public partial class MainWindow : Window
                 Status("Launcher à jour. Le mod nécessite une installation ou une réparation dans Paramètres.");
         }
         catch(Exception ex) when(ex is InstallRefusedException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or KeyNotFoundException)
-        { Status("Mise à jour automatique du mod impossible. Version sauvegardée ; consulte Paramètres."); }
+        { Status("Mod non mis à jour : Windows bloque peut-être l'accès au dossier Mods. Consulte Paramètres et l'historique de Sécurité Windows."); }
     }
 
     bool EnableScripts() =>

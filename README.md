@@ -1,3 +1,10 @@
+# Candidat client Windows 0.1.47
+
+Installation du mod transactionnelle et reprise limitee de l application des objets de terrain apres echec temporaire. Diagnostics automatiques de propriete/lecture/application. La protection Defender reste active ; une autorisation Windows personnelle peut etre necessaire.
+
+1301tests Python PASS/1SKIP,186serveur, paquet et vrai demarrage WPF PASS. Rendu meubles NOT_TESTED_GAME ; maison complete Hatay, murs/sols/toits et synchronisation generale des actions restent NON corriges. Aucune sauvegarde de joueur ni production modifiee.
+
+---
 # Client0.1.46 — continuite du proxy et essai assise
 
 Correction du gel lors d un changement de tenue pour le meme Sim deja prouve. Premier rejeu borne de l assise utilisateur sur proxy verifie et siege present/non ambigu. Aucun rejeu social, mouvement force du vrai joueur ou partage de besoins. Diagnostic mobilier automatique affine.

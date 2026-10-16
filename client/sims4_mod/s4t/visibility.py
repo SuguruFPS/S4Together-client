@@ -123,6 +123,15 @@ def report(diag):
                     terrain_bad_blocks=int(read_stats.get('blocksReadable') is False),
                     terrain_obj_errors=sum(_n(v) for k, v in (read_stats.get('objectErrors') or {}).items()
                                            if k != 'invalid_object'))
+    # Deux masques bornés compatibles avec le serveur existant (32 compteurs).
+    # Blocage visiteur : propriété=1, lecture locale=2, application=4.
+    blocked = {entry.get('state') for entry in remote.values()}
+    counters['terrain_block_reason'] = sum(bit for state, bit in (
+        ('blocked:ownership', 1), ('blocked:local_read', 2), ('blocked:apply_failed', 4)) if state in blocked)
+    # Lecture propriétaire : objets incomplets=1, contours illisibles=2, autre=4.
+    counters['terrain_read_reason'] = (int(_n(read_stats.get('skipped')) > 0)
+                                       + 2 * int(read_stats.get('blocksReadable') is False)
+                                       + 4 * int(terrain.get('readError') not in (None, 'partial_read')))
     actions = diag.get('remoteActions') or {}
     counters.update(seat_started=actions.get('started'), seat_refused=actions.get('refused'),
                     seat_pending=actions.get('pending'))
