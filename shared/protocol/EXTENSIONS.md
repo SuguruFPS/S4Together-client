@@ -296,6 +296,17 @@ Côté mod (`appearance_sync.py`, `remote_household.py`) : chaque autre joueur d
 - Refus `lot_taken` reçu du serveur : ni nouvel essai ni libération de l'ancien domicile tant que le joueur n'a pas changé de maison ; un refus vu dans le snapshot tombe dès que le snapshot montre la maison libre.
 - NOT_TESTED_GAME.
 
+### Résidence native et occupant PNJ (client0.1.51)
+
+Le claim serveur reste l'autorité ; aucune mutation de propriété supplémentaire ni cohabitation implicite.
+Dans une partie liée seulement, une copie S4T validée peut remplacer comme résident un PNJ local strictement
+non joué/non joueur/non sélectionnable/non instancié. Le foyer PNJ est conservé ; seul son domicile est libéré,
+après journal local durable lié au GUID/slot/foyer actif. Échec de journal : aucune mutation native.
+Retour du PNJ seulement après libération canonique et si son ancienne résidence est libre et lui-même toujours
+sans domicile/non joué. Aucune expulsion d'un foyer joué, d'une copie ou d'une identité incertaine.
+Garde native des deux entrées de changement de propriété, désactivée dès perte de contexte lié ; résultat
+natif relu avant succès. Ne transporte pas le bâtiment. NOT_TESTED_GAME.
+
 ## Capacité configurable (serveur 0.1.25)
 
 Server:MaxPlayers / Server__MaxPlayers choisit les sessions simultanées, défaut4 inchangé. Configuration positive jusqu’à256, borne de protection cohérente avec le quota existant des256 identités du monde ; ce quota persistant reste distinct des sessions et peut refuser identity_limit avant saturation. Les limites au-delà de16 ne sont pas une capacité testée ni une garantie Sims. HELLO, ACK, error server_full et identity_limit restent inchangés. Une connexion supplémentaire avec la même identité déjà en ligne est refusée ; après fermeture confirmée de son ancienne session, la reconnexion retrouve sa place sans dupliquer cette identité. Health.maxPlayers reflète la configuration. Aucun champ de secret ou télémétrie supplémentaire dans health. Matrice réseau isolée2/4/8/16 ; multimonde natif et SuguruDB sous cette charge restent à vérifier.

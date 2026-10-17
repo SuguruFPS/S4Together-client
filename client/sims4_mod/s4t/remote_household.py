@@ -9,8 +9,9 @@ description / sim_info_gen / move_into_zone, SimInfo.is_instanced, resend_physic
 
 Garde-fous : uniquement dans la partie liée au serveur (CharacterSync « bound », jamais la partie solo) ; une seule
 action par tick ; un foyer est reconnu par sa description `S4T:<playerId>:<sha16>` (pas de doublon après
-rechargement) ; jamais d'apparence modifiée pendant que le Sim est instancié ; jamais d'emménagement dans un terrain
-déjà habité dans cette partie : l'occupant natif (ZoneData.household_id) est relu juste avant move_into_zone.
+rechargement) ; jamais d'apparence modifiée pendant que le Sim est instancié. Occupant natif relu avant move_into_zone :
+seul un PNJ non joué et non instancié peut libérer une résidence canonique, après journal durable de son domicile.
+Tout foyer joué, sélectionnable, S4T ou incertain reste protégé. Aucun Sim supprimé ; restauration du PNJ sur lot libéré.
 Tant que l'apparence n'est pas appliquée et sauvegardée, la description porte `PENDING` au lieu de l'empreinte :
 un clone à l'apparence aléatoire n'est ni renommé ni emménagé. NOT_TESTED_GAME.
 """
@@ -68,8 +69,11 @@ def plan(players, ghosts, homes):
             return ('rename', player_id, {'householdId': ghost['householdId'], 'name': name})
         home = homes.get(player_id)
         zone_id = home.get('zoneId') if home else None
-        if zone_id and str(ghost.get('zoneId') or '') != zone_id and home.get('occupiedLocally') is False:
-            return ('move', player_id, {'householdId': ghost['householdId'], 'zoneId': zone_id})
+        if zone_id and str(ghost.get('zoneId') or '') != zone_id:
+            if home.get('occupiedLocally') is False:
+                return ('move', player_id, {'householdId': ghost['householdId'], 'zoneId': zone_id})
+            if home.get('replaceableNpc') is True:
+                return ('move', player_id, {'householdId':ghost['householdId'], 'zoneId':zone_id, 'allowNpc':True})
     return None
 
 
@@ -101,10 +105,20 @@ class RemoteHouseholds:
         self.cooldown = 0
         self.ghosts = {}
         self.blocked_homes = {}
+        if hasattr(self.adapter, 'clear_reservations'):
+            self.adapter.clear_reservations()
+
+    def clear_reservations(self):
+        if hasattr(self.adapter, 'clear_reservations'):
+            self.adapter.clear_reservations()
 
     def tick(self, character, names, appearances, homes):
         if character is None or character.get('status') != 'bound':
+            if hasattr(self.adapter, 'clear_reservations'):
+                self.adapter.clear_reservations()
             return None
+        if hasattr(self.adapter, 'sync_homes'):
+            self.adapter.sync_homes(homes)
         if self.cooldown > 0:
             self.cooldown -= 1
             return None
@@ -118,7 +132,7 @@ class RemoteHouseholds:
             if ghost is not None and str(ghost.get('zoneId') or '') != home.get('zoneId'):
                 if home.get('zoneId') is None:
                     self.blocked_homes[pid] = 'zone_unresolved'
-                elif home.get('occupiedLocally') is True:
+                elif home.get('occupiedLocally') is True and home.get('replaceableNpc') is not True:
                     self.blocked_homes[pid] = 'occupied_locally'
         action = None
         for pid in sorted(players):
@@ -160,6 +174,49 @@ class RemoteHouseholds:
 
 class GameHouseholds:
     """Adaptateur du jeu. Chaque méthode lève en cas d'échec ; RemoteHouseholds compte et espace les essais."""
+
+    def _residence_journal(self):
+        import hashlib
+        import os
+        from pathlib import Path
+        import services
+        from .residence import ResidenceJournal
+        persistence = services.get_persistence_service()
+        ids = (persistence.get_save_slot_proto_guid(), persistence.get_save_slot_proto_buff().slot_id,
+               services.active_household_id())
+        if any(type(value) is not int or not 0 < value < 2**64 for value in ids):
+            raise LookupError('residence_save_identity')
+        context = ':'.join(str(value) for value in ids)
+        key = hashlib.sha256(context.encode('ascii')).hexdigest()
+        root = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'S4Together' / 'residence-backups'
+        return ResidenceJournal(root / (key + '.json'), context)
+
+    def clear_reservations(self):
+        guard = getattr(self, 'residence_guard', None)
+        if guard is not None:
+            guard.clear()
+
+    def sync_homes(self, homes):
+        import services
+        from sims.household import Household
+        from .residence import ResidenceGuard
+        guard = getattr(Household.move_into_zone, 's4t_residence_guard', None)
+        if guard is None:
+            guard = ResidenceGuard()
+            Household.move_into_zone = guard.wrap(Household.move_into_zone)
+            Household.set_household_lot_ownership = guard.wrap(Household.set_household_lot_ownership)
+        self.residence_guard = guard
+        guard.set_homes({home['playerId']:int(home['zoneId']) for home in homes
+                         if home.get('zoneId') and str(home['zoneId']).isdigit()})
+        try:
+            journal = self._residence_journal()
+            def occupant(zone_id):
+                zone = services.get_persistence_service().get_zone_proto_buff(zone_id)
+                return zone.household_id if zone is not None else None
+            journal.restore(set(guard.homes.values()), services.household_manager().get,
+                            occupant, services.active_household_id())
+        except Exception as error:
+            log('residence_restore', type(error).__name__)
 
     def _household(self, household_id):
         import services
@@ -268,12 +325,32 @@ class GameHouseholds:
         household.name = name + SUFFIX
         sim_info.save_sim()
 
-    def move(self, player_id, householdId, zoneId):
+    def move(self, player_id, householdId, zoneId, allowNpc=False):
         import services
         household = self._household(householdId)
         if self._own(household, player_id) == PENDING:
             raise RuntimeError('pending')
         # Relu juste avant d'emménager : seul notre propre foyer distant peut déjà occuper le terrain.
         zone = services.get_persistence_service().get_zone_proto_buff(int(zoneId))
+        if allowNpc and zone is not None and zone.household_id not in (0, household.id):
+            from .residence import replaceable
+            npc = services.household_manager().get(zone.household_id)
+            if getattr(zone, 'active_plex', 0) or not replaceable(npc, services.active_household_id(), int(zoneId)):
+                raise PermissionError('occupied')
+            journal = self._residence_journal()
+            def occupant(zone_id):
+                fresh = services.get_persistence_service().get_zone_proto_buff(zone_id)
+                return fresh.household_id if fresh is not None else None
+            def install():
+                fresh = services.get_persistence_service().get_zone_proto_buff(int(zoneId))
+                check_move(household.id, services.active_household_id(), fresh)
+                household.move_into_zone(int(zoneId))
+                if household.home_zone_id != int(zoneId):
+                    raise RuntimeError('residence_move_unconfirmed')
+                household.save_data()
+            return journal.displace(npc, int(zoneId), player_id, household.id, install, occupant)
         check_move(household.id, services.active_household_id(), zone)
         household.move_into_zone(int(zoneId))
+        if household.home_zone_id != int(zoneId):
+            raise RuntimeError('residence_move_unconfirmed')
+        household.save_data()

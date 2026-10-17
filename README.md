@@ -1,3 +1,19 @@
+# Client de test0.1.51
+
+Client Windows de test 0.1.51 — résidence Analia
+
+Correctif expérimental de résidence canonique : un PNJ strictement non joué, non sélectionnable et non instancié peut libérer l'adresse attribuée au foyer d'un joueur. Le PNJ est conservé intact, temporairement sans domicile, avec journal local durable de son adresse avant modification. Aucun foyer joué, joueur ou copie S4T n'est expulsé. Si l'installation échoue, restauration seulement si le terrain reste libre ; journal conservé sinon. Retour possible du PNJ après départ du claim et seulement si sa situation le permet.
+
+Les deux entrées natives d'emménagement sont filtrées pour protéger les résidences serveur et empêcher les copies de déménager toutes seules. La garde se désactive hors liaison, en solo ou à l'arrêt. L'adresse native est relue avant de confirmer le succès. Aucune nouvelle version serveur nécessaire : serveur0.1.34 compatible et inchangé.
+
+Vérifications hors jeu :1341PythonPASS/1SKIP/92.82%,194serveur,110launcher,12checks paquet et vrai remplacementWPF51PASS. Codex seul. Aucun .save personnel modifié par les outils de développement ; le mod effectue les changements de résidence dans la partie multijoueur liée, enregistrés ensuite par le jeu.
+
+LIMITES : résultat Analia et garde dans deux vrais jeux NOT_TESTED_GAME. Les foyers joués/instanciés ou identités incertaines restent refusés. Changement de slot/foyer actif : journal de l'ancien contexte conservé, reprise non automatique.
+MAISON COMPLÈTE HATAY TOUJOURS NON CORRIGÉE : murs, sols et toits non transportés. La sonde automatique décrit maintenant les méthodes des classes natives Lot/Zone sans les appeler. Il faut analyser ce nouveau relevé réel avant de définir un import sûr ; aucun chargement d'octets opaques ni fusion de sauvegardes tenté.
+
+Test sans commande : fermer les jeux, actualiser les deux clients/mods, charger les parties liées puis rouvrir la carte après quelques secondes. Vérifier la résidence d'Analia et un déménagement vers une maison libre. Conserver les PNJ et journaux. Pour Hatay, le chargement de sa maison génère automatiquement native-probe.json enrichi et visibility-last.json dans les logs.
+
+---
 # Client de test0.1.50
 
 Client Windows de test 0.1.50 — déménagement

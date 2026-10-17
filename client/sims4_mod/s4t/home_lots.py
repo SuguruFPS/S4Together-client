@@ -58,7 +58,10 @@ def game_local_lot(lot_description_id):
         wanted = int(lot_description_id)
         for zone in services.get_persistence_service().zone_proto_buffs_gen():
             if zone.lot_description_id == wanted and not getattr(zone, 'active_plex', 0):
-                return {'zoneId': str(zone.zone_id), 'name': str(zone.name or ''), 'occupied': bool(zone.household_id)}
+                from .residence import replaceable
+                occupant = services.household_manager().get(zone.household_id) if zone.household_id else None
+                return {'zoneId': str(zone.zone_id), 'name': str(zone.name or ''), 'occupied': bool(zone.household_id),
+                        'replaceableNpc': replaceable(occupant, services.active_household_id(), zone.zone_id)}
     except Exception as error:
         log('home_lot_resolve', type(error).__name__)
     return None
@@ -252,6 +255,8 @@ class HomeLotSync:
             local = self.resolve(home['lotId'])
             entry = dict(home, zoneId=local['zoneId'] if local else None, lotName=local['name'] if local else None,
                          occupiedLocally=local['occupied'] if local else None)
+            if local and local.get('replaceableNpc') is True:
+                entry['replaceableNpc'] = True
             homes.append(entry)
             if local is not None:
                 place = '« {} »'.format(local['name']) if local['name'] else 'un terrain de ton monde'

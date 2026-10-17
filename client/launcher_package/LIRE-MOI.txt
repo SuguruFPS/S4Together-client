@@ -1,4 +1,12 @@
-S4Together 0.1.50-game-test — mod de test, launcher 0.1.50 (serveur recommandé 0.1.34). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.51-game-test — mod de test, launcher 0.1.51 (serveur recommandé 0.1.34). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES0.1.51 — résidences des joueurs
+Dans la partie multijoueur liée seulement, un PNJ identifié comme non joué et non instancié peut libérer la résidence revendiquée par un joueur.
+Ce PNJ est conservé intact, sans domicile temporairement ; journal local durable avant toute modification, retour possible quand la maison est libre et non revendiquée.
+Foyers joués, joueurs, copies S4T, Sims sélectionnables ou identité incertaine : aucune libération forcée.
+Les résidences serveur sont protégées contre les emménagements PNJ ; les copies ne déménagent plus de façon autonome.
+La sonde native automatique décrit aussi les méthodes des classes Lot et Zone, sans les appeler.
+ATTENTION : maison complète de Hatay toujours NON transférée ; ce paquet ne résout pas murs/sols/toits. Rendu en jeu non vérifié.
 
 NOUVEAUTES0.1.50 — déménagement automatique
 La demande atomique de changement de domicile traverse désormais le transport du mod.

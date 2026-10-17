@@ -224,6 +224,9 @@ class AutoLink:
         """Apparences échangées puis foyers « Nom (S4T) » des autres joueurs, partie liée seulement."""
         sync = self.character_sync
         if not status.get('authenticated') or not observation.get('loaded') or sync is None or sync.state != 'bound':
+            clear = getattr(self.remote_households, 'clear_reservations', None)
+            if clear is not None:
+                clear()
             return
         character = sync.character
         if self.appearance_sync is not None:
@@ -476,6 +479,9 @@ class AutoLink:
         self.handle = self.scheduler(self, NETWORK_SECONDS, self.pump)
 
     def stop(self):
+        clear = getattr(self.remote_households, 'clear_reservations', None)
+        if clear is not None:
+            clear()
         if self.handle is None:
             return
         handle, self.handle = self.handle, None

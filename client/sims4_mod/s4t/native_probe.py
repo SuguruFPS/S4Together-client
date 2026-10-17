@@ -11,6 +11,7 @@ MODULES = ('_buildbuy', '_persistence_module', '_zone', '_terrain', '_lot', '_wo
 HINTS = ('blueprint', 'architecture', 'wall', 'roof', 'floor', 'foundation', 'terrain', 'template',
          'lot', 'apply', 'import', 'load', 'save', 'serialize', 'house_desc')
 MAX_NAMES = 2000
+NATIVE_TYPES = {'_lot': ('Lot',), '_zone': ('Zone',)}
 
 
 def inspect(load=importlib.import_module):
@@ -24,6 +25,21 @@ def inspect(load=importlib.import_module):
         names = sorted(n for n in dir(module) if not n.startswith('__'))[:MAX_NAMES]
         found[name] = {'available': True, 'count': len(names), 'names': names,
                        'candidates': [n for n in names if any(h in n.lower() for h in HINTS)]}
+        # La sonde précédente ne décrivait que le module, pas les classes natives exportées.
+        # Lire les dictionnaires de types sans instance, getattr de propriété ou appel natif.
+        types = {}
+        for type_name in NATIVE_TYPES.get(name, ()):
+            candidate = vars(module).get(type_name)
+            if not isinstance(candidate, type):
+                continue
+            attributes = set()
+            for base in type.__getattribute__(candidate, '__mro__')[:8]:
+                attributes.update(n for n in type.__getattribute__(base, '__dict__') if not n.startswith('__'))
+            attributes = sorted(attributes)[:MAX_NAMES]
+            types[type_name] = {'count':len(attributes), 'names':attributes,
+                                'candidates':[n for n in attributes if any(h in n.lower() for h in HINTS)]}
+        if types:
+            found[name]['types'] = types
     return found
 
 
