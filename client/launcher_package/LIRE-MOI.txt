@@ -1,4 +1,12 @@
-S4Together 0.1.51-game-test — mod de test, launcher 0.1.51 (serveur recommandé 0.1.34). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.52-game-test — mod de test, launcher 0.1.52 (serveur recommandé 0.1.35). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.52 — copie multijoueur envoyée automatiquement
+Après avoir chargé ton personnage lié au serveur, enregistre normalement dans le jeu.
+Le launcher envoie ensuite la dernière copie stable de cette partie multijoueur au serveur choisi, sans commande.
+La copie contient la partie complète (foyers et monde), pas seulement ta maison ; l'administrateur du serveur peut y accéder.
+Deux versions sont conservées en privé par personnage. Aucun téléchargement public ni application automatique dans les parties des autres joueurs.
+La sauvegarde originale reste intacte. La progression non enregistrée dans le jeu ne peut pas être récupérée ainsi.
+Cela permet de récupérer les données natives des maisons ; leur affichage synchronisé n'est pas encore validé dans le jeu.
 
 NOUVEAUTES0.1.51 — résidences des joueurs
 Dans la partie multijoueur liée seulement, un PNJ identifié comme non joué et non instancié peut libérer la résidence revendiquée par un joueur.

@@ -1,3 +1,18 @@
+# Client de test 0.1.52
+
+Client 0.1.52 — sauvegarde multijoueur envoyée automatiquement
+
+Après chargement du personnage lié et un enregistrement normal dans Les Sims 4, le launcher envoie une copie stable de la partie complète au serveur 0.1.35. Le slot réellement chargé est vérifié ; les sauvegardes originales restent intactes. Pas de commande à lancer.
+
+Deux versions privées sont conservées par personnage. La copie contient les données du monde et des foyers : l'administrateur du serveur y accède, sans téléchargement public ni partage aux autres joueurs. Taille maximale 256 Mio. L'envoi est authentifié, contrôlé par hash et réessayé automatiquement en cas d'échec.
+
+Ce transfert permet de récupérer les données natives des maisons. Il n'applique pas les sauvegardes aux autres parties et ne corrige pas encore l'affichage de la maison de Hatay. La progression non enregistrée par le jeu n'est pas incluse.
+
+Vérifications :1390 Python PASS/1 SKIP,112 launcher PASS,195 serveur autonome PASS,2 tests unitaires stockage/auth,12 checks paquet et vrai remplacement WPF52 PASS. Transfert HTTP réel testé uniquement en fixture isolée. Depuis le vrai jeu et rendu des maisons : NOT_TESTED_GAME.
+
+Test : mettre à jour les clients et le mod, rejoindre avec le personnage lié, charger la partie multijoueur puis enregistrer normalement. Garder le launcher ouvert environ une minute. Le statut confirme l'envoi de la copie au serveur privé.
+
+---
 # Client de test0.1.51
 
 Client Windows de test 0.1.51 — résidence Analia

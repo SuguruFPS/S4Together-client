@@ -258,6 +258,13 @@ class CharacterSync:
                 return None
             if observed is not None and observed['householdId'] == self.character['binding']['gameHouseholdId']:
                 self.last_seen = observed['funds']
+                if self.clock() - getattr(self, '_save_context_at', -1000) >= 15:
+                    from .save_context import publish
+                    try:
+                        if publish(manager, self.character, observed):
+                            self._save_context_at = self.clock()
+                    except (RuntimeError, ValueError, OSError):
+                        pass  # Contexte local réessayé ; aucun impact sur checkpoint/jeu.
             self.ticks += 1
             if self.pending_save or self.ticks >= CHECKPOINT_TICKS:
                 saved, self.pending_save, self.ticks = self.pending_save, False, 0

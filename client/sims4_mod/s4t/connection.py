@@ -175,7 +175,7 @@ class ConnectionManager:
         except (ValueError, TypeError, AttributeError):
             raise ValueError('Identifiant requête invalide')
         request = {'v': 1, 'id': request_id, 'type': request_type, 'payload': payload or {}}
-        if request_type not in ('snapshot', 'chat', 'object.set', 'ping', 'ack', 'character.resume', 'character.bind', 'character.checkpoint',
+        if request_type not in ('local.save-context', 'snapshot', 'chat', 'object.set', 'ping', 'ack', 'character.resume', 'character.bind', 'character.checkpoint',
                                 'game.join', 'game.state', 'game.leave', 'game.snapshot', 'game.appearance.publish', 'game.appearance.list', 'game.appearance.get', 'game.visibility.report',
                                 'game.interaction', 'game.speed.get', 'game.speed.set', 'terrain.publish', 'terrain.get', 'terrain.catalog',
                                 'property.claim', 'property.release', 'property.move'):
@@ -297,6 +297,7 @@ class ConnectionManager:
                 self.error = 'identity_persistence_failed'; self.disconnect()
                 return {'v': 1, 'type': 'hello', 'ok': False, 'code': self.error}
             self.identity = {'playerId': payload['playerId'], 'token': payload['token']}
+            self.launcher_bridge = payload['sessionId'].startswith('bridge-')
             self._snapshot(payload['snapshot'])
             self.authenticated = True
             if self.transport is not None:

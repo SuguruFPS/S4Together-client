@@ -372,3 +372,11 @@ L'ACK authentifié de `game.join` peut fournir `stateIntervalMs` (entier250–10
 
 Un heartbeat launcher `ping` toutes les5secondes doit recevoir son ACK sous5secondes ; refus/expiration ferme le socket et le pont mod. Une perte réseau ne peut être détectée instantanément ; le délai inactif serveur reste une seconde protection. La reprise exige nouvelle authentification, nouveau flux et restauration du checkpoint du personnage lié. Aucun rejeu automatique de poses anciennes ni restauration brute de fichier `.save`.
 
+# Copie privée de sauvegarde (client0.1.52 / serveur0.1.35)
+
+`local.save-context` est une requête du seul pont loopback authentifié, jamais relayée au serveur. Payload exact : `characterId` UUID, `householdId` et `slotId` chaînes natives positives, `simIds` tableau de 1 à 8 identifiants natifs uniques. Le mod ne l'émet que pour le foyer lié réellement chargé ; le launcher périme le contexte après 60 secondes et vérifie slot et liaison dans sa copie disque stable.
+
+`HEAD|PUT /private-saves/{characterId}/{sha256}` exige Authorization Bearer (jeton persistant privé), `X-S4T-Player` et `X-S4T-Session` UUID. Session active, propriétaire, sélection et liaison sont exigés avant réception et revérifiés avant commit. Pas de GET ni téléchargement public. HEAD 200 signifie copie identique déjà conservée ; 404 signifie absente. PUT est un flux octet avec Content-Length de 96 à 268435456 octets ; réponse `{status:"stored",sha256,bytes,validation:"quarantined"}`. Refus :401,400,411,413,429,503,408. HEAD limité à un contrôle/10s/joueur ; PUT un essai/30s/joueur, un transfert simultané global, timeout5min.
+
+Deux versions par personnage, quota total8Gio, contrôle taille/hash/en-tête DBPF2.x, commit fichiers/index atomique. La partie complète contient des données du monde ; stockage administrateur privé uniquement, exclu des exports. Aucun import, restauration ni effet gameplay. Le launcher réessaie depuis sa copie locale ; la progression non enregistrée par le moteur n'est pas couverte. Voir `docs/PRIVATE_SAVE_UPLOAD_0.1.52.md`.
+

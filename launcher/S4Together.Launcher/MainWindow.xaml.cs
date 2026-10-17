@@ -288,6 +288,9 @@ public partial class MainWindow : Window
             created.Closed += reason => Dispatcher.InvokeAsync(() => OnLinkClosed(created, reason));
             created.Bridge.ModConnectionChanged += connected => Dispatcher.InvokeAsync(() => { if (ReferenceEquals(link, created)) OnModConnection(connected); });
             created.Bridge.Rejected += reason => Dispatcher.InvokeAsync(() => Status("Connexion locale refusée : " + reason));
+            created.Bridge.SaveContextObserved += context => Dispatcher.InvokeAsync(() => { if(ReferenceEquals(link,created))loadedSaveContext=context; });
+            loadedSaveContext=null;
+            created.Bridge.ModConnectionChanged += connected => {if(!connected)Dispatcher.InvokeAsync(()=>{if(ReferenceEquals(link,created))loadedSaveContext=null;});};
             created.Bridge.RequestRejected += (type, code) => Dispatcher.InvokeAsync(() =>
             {
                 if (!ReferenceEquals(link, created) || type != "game.join") return;

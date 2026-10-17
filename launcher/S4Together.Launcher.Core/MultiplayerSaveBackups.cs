@@ -16,8 +16,9 @@ public sealed class MultiplayerSaveBackups(string root)
         for(var item=new DirectoryInfo(Path.GetFullPath(path));item is not null;item=item.Parent)
             if(item.Exists&&(item.Attributes&FileAttributes.ReparsePoint)!=0)throw new IOException("Dossier de sauvegarde redirige refuse.");
     }
-    static bool Matches(CharacterInfo character,string file)=>MultiplayerSave.Find(character,LocalSimCatalog.ReadSave(file)) is not null;
-    public SaveBackupResult Capture(string profile,string server,CharacterInfo character)
+    static bool Matches(CharacterInfo character,string file,string? slot=null)
+    {var sims=LocalSimCatalog.ReadSave(file);return MultiplayerSave.Find(character,sims) is not null&&(slot is null||sims.Any(s=>s.SaveId==slot));}
+    public SaveBackupResult Capture(string profile,string server,CharacterInfo character,string? requiredSlotId=null)
     {
         if(!character.Bound||!CharacterRoster.IsUuid(character.Id)||character.GameSimIds.Count==0||string.IsNullOrWhiteSpace(server))return new("unbound");
         var saves=Path.Combine(Path.GetFullPath(profile),"saves");NoLinks(saves);
@@ -28,7 +29,7 @@ public sealed class MultiplayerSaveBackups(string root)
         {
             var info=new FileInfo(file);
             if((info.Attributes&FileAttributes.ReparsePoint)!=0||info.Length<=0||info.Length>MaxSaveBytes||DateTime.UtcNow-info.LastWriteTimeUtc<TimeSpan.FromSeconds(5))continue;
-            try {if(Matches(character,file)){source=file;break;}}
+            try {if(Matches(character,file,requiredSlotId)){source=file;break;}}
             catch(Exception e)when(e is IOException or InvalidDataException or UnauthorizedAccessException or OverflowException or DecoderFallbackException){continue;}
         }
         if(source is null)return new("not_found");
@@ -52,7 +53,7 @@ public sealed class MultiplayerSaveBackups(string root)
             using(var output=new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None))
             {input.CopyTo(output);output.Flush(true);}
             var after=new FileInfo(source);
-            if(after.Length!=length||after.LastWriteTimeUtc!=stamp||!Matches(character,temporary))return new("unstable");
+            if(after.Length!=length||after.LastWriteTimeUtc!=stamp||!Matches(character,temporary,requiredSlotId))return new("unstable");
             var digest=Hash(temporary);
             if(Hash(source)!=digest)return new("unstable");
             var destination=Path.Combine(folder,digest+".save");

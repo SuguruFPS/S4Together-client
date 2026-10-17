@@ -23,6 +23,8 @@ public partial class MainWindow
     bool copyingSave;
     (string Profile,string Server,CharacterInfo Character)? saveBackupTarget;
     string? lastBackupProblem;
+    SaveUploadContext? loadedSaveContext;
+    readonly PrivateSaveUploader saveUploader=new();
 
     void StartSaveBackups()
     {
@@ -60,12 +62,34 @@ public partial class MainWindow
             // Apres crash, conserver la derniere cible authentifiee pour proteger son fichier disque.
             // Aucun fichier .save n'est charge, remplace ou restaure dans le dossier du jeu.
             if(quitting||saveBackupTarget is not {} target)return;
-            var result=await Task.Run(()=>saveBackups.Capture(target.Profile,target.Server,target.Character));
+            var context=loadedSaveContext;
+            var result=await Task.Run(()=>saveBackups.Capture(target.Profile,target.Server,target.Character,context?.Matches(target.Character)==true?context.SlotId:null));
             if(result.Status=="created")StatusBar.Text="Copie de securite multijoueur creee. La sauvegarde originale reste intacte.";
             else if(result.Status=="quota"&&lastBackupProblem!="quota")
                 StatusBar.Text="Copies de securite : limite de 2 Go atteinte. Les copies existantes sont conservees.";
             lastBackupProblem=result.Status;
+            // Envoi seulement pour le lien actuellement authentifié ET le slot observé par son mod.
+            if(link is {} activeLink&&activeLink.Session.Connected&&activeLink.Bridge.ModConnected&&
+                context?.Matches(target.Character)==true&&result.BackupPath is {} copy&&
+                target.Server.EndsWith("\n"+activeLink.Address.WebSocketUri.AbsoluteUri,StringComparison.Ordinal))
+            {
+                using var cancel=new CancellationTokenSource(TimeSpan.FromMinutes(5));
+                void Closed(string _)=>cancel.Cancel();
+                void ModClosed(bool connected){if(!connected)cancel.Cancel();}
+                activeLink.Closed+=Closed;
+                activeLink.Bridge.ModConnectionChanged+=ModClosed;
+                try
+                {
+                    var status=await Task.Run(()=>saveUploader.UploadAsync(activeLink.Address,activeLink.Session.Hello!,target.Character,context,copy,cancel.Token));
+                    if(ReferenceEquals(activeLink,link)&&status=="stored")StatusBar.Text="Copie multijoueur envoyee au serveur prive. La sauvegarde originale reste intacte.";
+                    else if(status=="unsupported")StatusBar.Text="Envoi de sauvegarde : mets a jour le serveur pour activer cette fonction.";
+                }
+                finally{activeLink.Closed-=Closed;activeLink.Bridge.ModConnectionChanged-=ModClosed;}
+            }
         }
+        catch(System.Net.Http.HttpRequestException)
+        {if(!quitting)StatusBar.Text="Envoi de sauvegarde au serveur en attente. La copie locale est conservee ; nouvel essai automatique.";}
+        catch(OperationCanceledException) { /* Déconnexion/fermeture : copie locale conservée. */ }
         catch(Exception ex)when(ex is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
         {
             if(lastBackupProblem!=ex.GetType().Name)

@@ -47,6 +47,7 @@ public sealed class LocalBridge : IAsyncDisposable
     public Uri Endpoint => new($"ws://127.0.0.1:{Port}/ws");
 
     public event Action<bool>? ModConnectionChanged;
+    public event Action<SaveUploadContext>? SaveContextObserved;
     public event Action<string>? Rejected;
     /// <summary>Refus corrélé à une requête réelle du mod ; aucun texte libre du serveur.</summary>
     public event Action<string, string>? RequestRejected;
@@ -216,6 +217,13 @@ public sealed class LocalBridge : IAsyncDisposable
                 || request["id"] is not JsonValue idNode || !idNode.TryGetValue<string>(out var id) || id.Length is 0 or > 128
                 || request["type"] is not JsonValue typeNode || !typeNode.TryGetValue<string>(out var type))
                 return;
+            if(type=="local.save-context")
+            {
+                var context=request["payload"] is JsonObject body?SaveUploadContext.Parse(body):null;
+                if(context is not null)SaveContextObserved?.Invoke(context);
+                await SendToAsync(socket,new JsonObject{["v"]=1,["id"]=id,["type"]=context is null?"error":"ack",["ok"]=context is not null,["code"]=context is null?"invalid_request":null},life.Token);
+                continue;
+            }
             if (!RelayedTypes.Contains(type))
             {
                 await SendToAsync(socket, new JsonObject { ["v"] = 1, ["id"] = id, ["type"] = "error", ["ok"] = false, ["code"] = "forbidden", ["message"] = "Requête non relayée." }, life.Token);
