@@ -317,6 +317,14 @@
                          Text="Chaque action demande ton accord. Les anciennes copies et Options.ini sont sauvegardés dans %LOCALAPPDATA%\S4Together\launcher\backups. Aucun autre mod ni sauvegarde de partie n'est touché. Jeu fermé obligatoire."/>
             </StackPanel>
           </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="Copies de sécurité multijoueur"/>
+              <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                Text="Le launcher conserve jusqu'à 10 copies des parties enregistrées correspondant à ton personnage multijoueur. L'original reste intact. Ces copies ne récupèrent pas les actions que Les Sims 4 n'a pas encore enregistrées."/>
+              <Button Content="Ouvrir mes copies de sécurité" HorizontalAlignment="Left" Click="OpenSaveBackups_Click"/>
+            </StackPanel>
+          </Border>
           <CheckBox x:Name="TrayBox" Content="Réduire dans la zone de notification pendant le jeu" Click="TrayBox_Click"/>
         </StackPanel>
       </ScrollViewer>

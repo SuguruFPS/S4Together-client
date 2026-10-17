@@ -76,6 +76,7 @@ public partial class MainWindow : Window
         DetectGames();
         DetectModsFolders();
         StartServerModMaintenance();
+        StartSaveBackups();
         Closing += OnClosing;
         RefreshAll();
         NavTo("PageServer");
@@ -1411,6 +1412,7 @@ public partial class MainWindow : Window
         }
         await ReviewServerModsAsync();
         serverModTimer.Stop();
+        saveBackupTimer.Stop();
         tray.Visible = false;
         tray.Dispose();
         Close();

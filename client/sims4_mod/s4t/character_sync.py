@@ -17,6 +17,7 @@ foyer joué et n'est pas utilisé. Détail et limites : docs/NATIVE_OBJECTIVES.m
 """
 import json
 import re
+import time
 import uuid
 
 from . import solo_guard
@@ -24,7 +25,7 @@ from .journal import log
 from .notify import game_notify
 from .remote_household import PREFIX, SUFFIX
 
-CHECKPOINT_TICKS = 60
+CHECKPOINT_TICKS = 15
 MAX_FUNDS = 9999999
 _UUID = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 _NATIVE = re.compile(r'^[0-9]{1,20}$')
@@ -185,13 +186,15 @@ class CharacterSync:
     """Machine à états appelée par AutoLink à chaque seconde, jamais d'exception vers le jeu."""
 
     def __init__(self, store, household=game_household, set_funds=game_set_funds,
-                 reset_relations=game_reset_npc_relations, new_id=lambda: str(uuid.uuid4()), notify=game_notify):
+                 reset_relations=game_reset_npc_relations, new_id=lambda: str(uuid.uuid4()), notify=game_notify,
+                 clock=time.monotonic):
         self.store = store
         self.household = household
         self.set_funds = set_funds
         self.reset_relations = reset_relations
         self.new_id = new_id
         self.notify = notify
+        self.clock = clock
         # Argent du foyer au dernier tick lié. Survit à reset() : il distingue un voyage (même argent en
         # mémoire du jeu) d'une partie rechargée, seul cas où le checkpoint serveur doit être restauré.
         self.last_seen = None
@@ -207,6 +210,9 @@ class CharacterSync:
         """Reconnexion ou nouvelle zone : on redemande l'état au serveur."""
         self.state = 'idle'
         self.waiting = None
+        self.waiting_body = None
+        self.waiting_at = 0
+        self.retry_ticks = 0
         self.character = None
         self.ticks = 0
         self.last_sent = None
@@ -227,7 +233,21 @@ class CharacterSync:
             if self.state != 'idle':
                 self.reset()
             return None
-        if not loaded or self.waiting is not None:
+        if not loaded:
+            return None
+        if self.waiting is not None:
+            if self.waiting[1] == 'character.checkpoint' and self.waiting_body is not None and self.clock() - self.waiting_at >= 5:
+                observed = self._observe()
+                if (observed is not None and self.character is not None
+                        and observed['householdId'] == self.character['binding']['gameHouseholdId']
+                        and not self._solo_block(self.character, observed)):
+                    # ACK perdu : meme UUID/corps, donc aucune double mutation cote serveur.
+                    self.waiting_at = self.clock()
+                    manager.request(self.waiting[1], dict(self.waiting_body), self.waiting[0])
+                    return 'character.checkpoint'
+            return None
+        if self.retry_ticks > 0:
+            self.retry_ticks -= 1
             return None
         if self.state == 'idle':
             return self._send(manager, 'character.resume', {}, 'resuming')
@@ -305,6 +325,7 @@ class CharacterSync:
                 continue
             kind = self.waiting[1]
             self.waiting = None
+            self.waiting_body = None
             if message.get('ok') is not True:
                 self._refused(kind, message.get('code'))
                 continue
@@ -330,12 +351,21 @@ class CharacterSync:
         request_id = self.new_id()
         manager.request(kind, payload, request_id)
         self.waiting = (request_id, kind)
+        self.waiting_body = dict(payload)
+        self.waiting_at = self.clock()
         self.state = state
         return kind
 
     def _refused(self, kind, code):
         code = code if isinstance(code, str) else 'error'
         log('character', kind + ':' + code)
+        if kind == 'character.checkpoint' and code in ('storage_unavailable', 'request_limit', 'error'):
+            # Refus avant confirmation durable : garder la partie courante et reprendre plus tard.
+            self.state = 'bound'
+            self.last_sent = None
+            self.pending_save = True
+            self.retry_ticks = 10
+            return
         if kind == 'character.bind' and self.character is not None and code not in _TRANSIENT:
             # Refus définitif, même rejoué : ne plus le renvoyer à chaque reprise.
             self.store.mark_character(self.character['characterId'] + '/bind', 'done')

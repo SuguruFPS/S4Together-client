@@ -1,3 +1,14 @@
+# Client de test0.1.49
+
+Client Windows de test0.1.49 — protection des sauvegardes
+
+- Checkpoints des changements d'argent toutes15secondes environ, reprise apres indisponibilite temporaire et rejeu du meme UUID si ACK perdu.
+- Copies locales des parties deja enregistrees correspondant aux IDs du personnage lie :10versions par serveur/personnage, hash et DBPF verifies, originaux intacts, plafond2Go. Parametres > Ouvrir mes copies de securite.
+-1314PythonPASS/1SKIP,194serveur,110launcher,12checks paquet et vraiWPF49r3 PASS.
+
+Limites : ces copies ne forcent pas Les Sims4 a enregistrer les actions encore en memoire. Le checkpoint serveur ne couvre pas competences/inventaires/besoins. Restauration complete guidee et autosave native coordonnee restent a developper ; aucune garantie zero perte, NOT_TESTED_GAME. Launcher ouvert requis pour les copies. Aucun serveur/base/save personnelle modifie par cette livraison ; serveur34 reste compatible, vitesse experimentale desactivee. Meubles, maisons et heure/meteo ne sont pas declares corriges.
+
+---
 ## Developpement non publie apres 0.1.48
 
 Prototype de vitesse native automatique, inactif sans capacite serveur explicite.

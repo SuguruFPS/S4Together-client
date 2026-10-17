@@ -1,4 +1,10 @@
-S4Together 0.1.48-game-test — mod de test, launcher 0.1.48 (serveur recommandé 0.1.33). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.49-game-test — mod de test, launcher 0.1.49 (serveur recommandé 0.1.34). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES0.1.49 — protection en cas de coupure
+Checkpoint des changements d'argent toutes les15secondes environ. Un refus temporaire de la base est retente ; une reponse perdue ne double pas la sauvegarde serveur.
+Le launcher garde jusqu'a10copies locales des parties enregistrees correspondant au foyer multijoueur lie. Originaux intacts, separation serveur/personnage, verification avant conservation, limite2Go. Parametres > Ouvrir mes copies de securite.
+Ces copies ne forcent PAS Les Sims4 a enregistrer les actions encore en memoire : une perte depuis le dernier enregistrement natif reste possible. Restauration complete guidee et autosave native coordonnee restent a developper. Aucune commande joueur requise. Aucun fichier de partie n'est envoye au serveur.
+Prototype de vitesse du terrain conserve DESACTIVE sur serveur34 ; heure/meteo, meubles manquants et maisons completes ne sont pas declares corriges.
 
 NOUVEAUTES0.1.48
 Protection supplementaire des invitations natives tardives provenant de copies de joueurs : acceptation et creation refusees avant leurs effets connus. Pas de voyage force. Autres voies natives et nettoyage sans effets restent a verifier ; NOT_TESTED_GAME.
