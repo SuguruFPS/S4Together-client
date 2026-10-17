@@ -1,3 +1,18 @@
+# Client de test 0.1.53
+
+Client 0.1.53 — meubles et déplacements distants
+
+Correctif du blocage constaté chez Umupafa : les objets entièrement lus peuvent être publiés même si le relevé des contours de pièces échoue. Le serveur 0.1.36 conserve les derniers contours complets séparément. Le visiteur applique uniquement les objets sur la copie du terrain autorisée. Les DLC/CC doivent être possédés et installés localement ; aucun contenu de pack n'est distribué.
+
+Les copies de Sims ne restent plus indéfiniment bloquées sur le seul drapeau moteur « moving » : la progression réelle est contrôlée, avec reprises bornées. Un trajet S4Together remplace son précédent trajet au lieu de s'accumuler. Aucun TP ni contrôle du Sim jouable.
+
+Vérifié hors jeu :1396 Python PASS/1 SKIP,360 tests ciblés,112 launcher,195 serveur autonome,5 suites unitaires terrain,12 checks paquet et vrai remplacement WPF53 PASS. Vraie SuguruDB HTTP/SQLite : objets seuls et conservation des contours relus après réouverture.
+
+Fermer les jeux, actualiser les deux clients/mods, rejoindre avec les personnages liés. Umupafa reste dans sa maison pour sa publication automatique, puis Suguru visite son terrain. Comparer les meubles DLC et les déplacements dans les deux sens. Aucune commande nécessaire.
+
+Rendu mobilier/DLC, mouvement réel et latence : NOT_TESTED_GAME. La maison complète de Hatay (murs, sols, toits) n'est pas reconstruite par ce correctif.
+
+---
 # Client de test 0.1.52
 
 Client 0.1.52 — sauvegarde multijoueur envoyée automatiquement

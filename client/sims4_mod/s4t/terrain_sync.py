@@ -74,6 +74,7 @@ class TerrainSync:
         self.online = False
         self.read_error = None
         self.read_stats = {}
+        self.objects_only = False
 
     def mark_dirty(self, reason='object_event'):
         """Événement natif : le terrain sera relu au prochain relevé. Aucune lecture ici."""
@@ -102,6 +103,7 @@ class TerrainSync:
         if not isinstance(character, dict) or character.get('status') != 'bound' or self.unsupported:
             return None
         self.ticks += 1
+        self.objects_only = isinstance(snapshot, dict) and snapshot.get('terrainObjectsOnly') is True
         self._expire(manager)
         try:
             local = self.locate()
@@ -195,11 +197,14 @@ class TerrainSync:
             return None
         self.read_stats = {'skipped': content.get('skipped'), 'blocksReadable': content.get('blocksReadable'),
                            'objectErrors': dict(content.get('readErrors') or {}), 'blockError': content.get('blockError')}
-        if content.get('blocksReadable') is not True or content.get('skipped') != 0:
+        if content.get('skipped') != 0 or (content.get('blocksReadable') is not True and not self.objects_only):
             self.read_error = 'partial_read'
             return None  # Une absence de lecture n'est pas une suppression d'objet ou de pièce.
         try:
-            snapshot = terrain.validate_snapshot(terrain.build_snapshot(lot_id, content['objects'], content['blocks']))
+            candidate = terrain.build_snapshot(lot_id, content['objects'], content['blocks'])
+            if content.get('blocksReadable') is not True:
+                candidate.update(schema=2, blocks=[])
+            snapshot = terrain.validate_snapshot(candidate)
         except (KeyError, TypeError):
             snapshot = None
         self.read_error = None if snapshot is not None else 'invalid'
@@ -418,8 +423,7 @@ class TerrainSync:
         entry['blocked'] = None  # Le foyer S4T peut être apparu après la réception du relevé.
         try:
             content = self.read()
-            if (not isinstance(content, dict) or 'error' in content or content.get('blocksReadable') is not True
-                    or content.get('skipped') != 0):
+            if (not isinstance(content, dict) or 'error' in content or content.get('skipped') != 0):
                 # Terrain local illisible ou lu en partie : rien n'est écrit, nouvel essai au relevé suivant.
                 if not unread:
                     self._reject('local_read')
@@ -452,11 +456,13 @@ class TerrainSync:
             else:
                 progress = 'blocked:' + entry['blocked'] if entry['blocked'] else 'ready'
             remote[lot_id] = {'revision': entry['revision'], 'objects': len(entry['snapshot']['objects']),
-                              'blocks': len(entry['snapshot']['blocks']), 'state': progress}
+                              'blocks': len(entry['snapshot']['blocks']), 'state': progress,
+                              'geometryKnown': entry['snapshot']['schema'] == 1}
         own = self.own or {}
         return {'state': state, 'ownLot': own.get('lotId'), 'ownRevision': own.get('revision'),
                 'published': own.get('hash') is not None, 'dirty': self.dirty, 'readError': self.read_error,
                 'fetching': self.fetching[1] if self.fetching else None, 'remote': remote,
                 'rejected': dict(self.rejected), 'applier': self.apply is not None,
                 'readStats': dict(self.read_stats),
+                'objectsOnlySupported': self.objects_only,
                 'architecture': 'not_transferred', 'gameReadiness': 'NOT_TESTED_GAME'}

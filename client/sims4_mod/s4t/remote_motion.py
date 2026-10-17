@@ -72,7 +72,8 @@ def clean_pose(sim):
 
 
 def new_move():
-    return {'target': None, 'tries': 0, 'wait': 0, 'stuck': False, 'gap': None, 'gap_wait': 0}
+    return {'target': None, 'tries': 0, 'wait': 0, 'stuck': False, 'gap': None, 'gap_wait': 0,
+            'progress': None, 'idle': 0}
 
 
 def _far(a, b):
@@ -90,6 +91,11 @@ def decide(current, pose, move):
         return 'level'
     target = (pose['position']['x'], pose['position']['z'])
     here = (current['x'], current['z'])
+    progress = move.get('progress')
+    if progress is None or math.hypot(here[0] - progress[0], here[1] - progress[1]) >= .1:
+        move.update(progress=here, idle=0, tries=0, stuck=False)
+    else:
+        move['idle'] = move.get('idle', 0) + 1
     other_level = level != current.get('level')
     if not other_level and math.hypot(target[0] - here[0], target[1] - here[1]) <= ARRIVE_DISTANCE:
         move.update(target=None, tries=0, stuck=False, gap=None)
@@ -106,7 +112,7 @@ def decide(current, pose, move):
     if last is None or math.hypot(target[0] - last[0], target[1] - last[1]) > REPLAN_DISTANCE:
         move.update(target=target, tries=1, wait=ROUTE_RETRY_TICKS, stuck=False)
         return 'route'
-    if current.get('moving') or move['stuck'] or move['wait'] > 0:
+    if (current.get('moving') and move['idle'] < ROUTE_RETRY_TICKS) or move['stuck'] or move['wait'] > 0:
         return 'none'
     if move['tries'] >= MAX_ROUTE_TRIES:
         move['stuck'] = True
@@ -120,6 +126,18 @@ def _own(household, sim_id, instance):
     """Preuve de possession d'une instance. La référence faible ne retient pas un objet que le jeu a détruit ;
     un objet qui n'en accepte pas lève TypeError : identité incertaine, donc pas de possession."""
     return {'household': household, 'sim': sim_id, 'instance': weakref.ref(instance)}
+
+
+def replace_route(sim, affordance, target, context, finish_type):
+    """Une seule interaction de trajet S4T par copie ; aucune autre action n'est annulée."""
+    previous = getattr(sim, '_s4t_motion_route', None)
+    if previous is not None:
+        previous.cancel(finish_type, cancel_reason_msg='S4Together: owner route superseded')
+        sim._s4t_motion_route = None
+    result = sim.push_super_affordance(affordance, target, context)
+    if not result:
+        raise RuntimeError('route_refused')
+    sim._s4t_motion_route = getattr(result, 'interaction', None)
 
 
 class RemoteMotion:
@@ -813,6 +831,7 @@ class GameMotion:
         import sims4.math
         from interactions.context import InteractionContext
         from interactions.priority import Priority
+        from interactions.interaction_finisher import FinishingType
         from objects.terrain import TerrainPoint
         from server.pick_info import PickInfo, PickType
         from server_commands.sim_commands import CommandTuning
@@ -823,8 +842,7 @@ class GameMotion:
         pick = PickInfo(pick_type=PickType.PICK_TERRAIN, target=target, location=position, routing_surface=surface)
         context = InteractionContext(sim, InteractionContext.SOURCE_SCRIPT_WITH_USER_INTENT, Priority.High, pick=pick,
                                      group_id=1)
-        if not sim.push_super_affordance(CommandTuning.TERRAIN_GOHERE_AFFORDANCE, target, context):
-            raise RuntimeError('route_refused')
+        replace_route(sim, CommandTuning.TERRAIN_GOHERE_AFFORDANCE, target, context, FinishingType.USER_CANCEL)
 
     def despawn(self, player_id, household_id, instance):
         """Retire l'instance du terrain. Le SimInfo et le foyer restent : jamais de remove_permanently."""

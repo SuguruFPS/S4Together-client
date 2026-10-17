@@ -1,4 +1,12 @@
-S4Together 0.1.52-game-test — mod de test, launcher 0.1.52 (serveur recommandé 0.1.35). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.53-game-test — mod de test, launcher 0.1.53 (serveur recommandé 0.1.36). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.53 — meubles et déplacements
+Les meubles peuvent être transmis même si la lecture native des contours des pièces échoue.
+Les objets doivent tous être lisibles ; les derniers contours complets du serveur sont conservés séparément.
+Un trajet distant qui reste marqué en mouvement sans avancer peut être réessayé ; le nouveau trajet remplace uniquement l'ancien trajet S4Together.
+Les packs DLC et contenus personnalisés doivent rester installés chez le visiteur.
+Ces correctifs sont testés hors jeu ; meubles, déplacements et latence restent à vérifier dans vos deux jeux.
+Ils ne reconstruisent pas les murs, sols ou toits de la maison de Hatay.
 
 NOUVEAUTES 0.1.52 — copie multijoueur envoyée automatiquement
 Après avoir chargé ton personnage lié au serveur, enregistre normalement dans le jeu.

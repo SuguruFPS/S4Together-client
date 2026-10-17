@@ -79,9 +79,11 @@ def build_snapshot(lot_id, objects, blocks):
 
 def validate_snapshot(value):
     """Le snapshot s'il respecte exactement le format canonique (bornes, types, tri), sinon None."""
-    if not isinstance(value, dict) or set(value) != _KEYS or type(value['schema']) is not int or value['schema'] != SCHEMA:
+    if not isinstance(value, dict) or set(value) != _KEYS or type(value['schema']) is not int or value['schema'] not in (1, 2):
         return None
     lot_id, objects, blocks = value['lotId'], value['objects'], value['blocks']
+    if value['schema'] == 2 and blocks != []:
+        return None  # Schéma 2 = objets complets, contours explicitement inconnus.
     if not isinstance(lot_id, str) or _NATIVE.fullmatch(lot_id) is None:
         return None
     if type(objects) is not list or len(objects) > MAX_OBJECTS or not all(_valid_row(row) for row in objects):
@@ -106,10 +108,14 @@ def pages(snapshot, snapshot_hash, transfer_id, base_revision, reason):
     parts.extend((objects[start:start + PAGE_OBJECTS], []) for start in range(0, len(objects), PAGE_OBJECTS))
     if not parts:
         parts.append(([], []))
-    return [{'lotId': snapshot['lotId'], 'baseRevision': base_revision, 'hash': snapshot_hash,
+    result = [{'lotId': snapshot['lotId'], 'baseRevision': base_revision, 'hash': snapshot_hash,
              'transferId': transfer_id, 'page': index, 'pages': len(parts), 'count': len(objects),
              'blockCount': len(blocks), 'reason': reason, 'objects': rows, 'blocks': outlines}
             for index, (rows, outlines) in enumerate(parts)]
+    if snapshot['schema'] == 2:
+        for part in result:
+            part['objectsOnly'] = True
+    return result
 
 
 def plan(current, wanted):

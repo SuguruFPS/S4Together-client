@@ -374,6 +374,10 @@ Un heartbeat launcher `ping` toutes les5secondes doit recevoir son ACK sous5seco
 
 # Copie privée de sauvegarde (client0.1.52 / serveur0.1.35)
 
+## Extension terrain objets seuls (client0.1.53 / serveur0.1.36)
+
+Capacité snapshot `terrainObjectsOnly:true`. `terrain.publish` conserve ses règles et champs, avec `objectsOnly:true` optionnel et strictement booléen vrai, identique sur toutes les pages. Le hash porte alors sur `{blocks:[],lotId,objects,schema:2}` en ordre canonique. Le schéma2 indique des contours inconnus, jamais une suppression de pièces ; aucun contour ne peut accompagner ce mode. Tous les objets doivent être lisibles. Le serveur conserve les derniers contours complets dans le champ privé persistant `PreservedBlocks` ; les relevés complets schéma1 restent compatibles. `terrain.get/catalog` renvoie le schéma reçu et validé. Les anciens clients refusent le schéma2 sans appliquer d'objet. Les droits de propriété, pagination, hashes, CAS et quotas restent obligatoires.
+
 `local.save-context` est une requête du seul pont loopback authentifié, jamais relayée au serveur. Payload exact : `characterId` UUID, `householdId` et `slotId` chaînes natives positives, `simIds` tableau de 1 à 8 identifiants natifs uniques. Le mod ne l'émet que pour le foyer lié réellement chargé ; le launcher périme le contexte après 60 secondes et vérifie slot et liaison dans sa copie disque stable.
 
 `HEAD|PUT /private-saves/{characterId}/{sha256}` exige Authorization Bearer (jeton persistant privé), `X-S4T-Player` et `X-S4T-Session` UUID. Session active, propriétaire, sélection et liaison sont exigés avant réception et revérifiés avant commit. Pas de GET ni téléchargement public. HEAD 200 signifie copie identique déjà conservée ; 404 signifie absente. PUT est un flux octet avec Content-Length de 96 à 268435456 octets ; réponse `{status:"stored",sha256,bytes,validation:"quarantined"}`. Refus :401,400,411,413,429,503,408. HEAD limité à un contrôle/10s/joueur ; PUT un essai/30s/joueur, un transfert simultané global, timeout5min.
