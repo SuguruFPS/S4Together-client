@@ -291,7 +291,8 @@ Côté mod (`appearance_sync.py`, `remote_household.py`) : chaque autre joueur d
 - Refus : `invalid_request` si `fromLotId == lotId` ou champ absent ; `forbidden` si `fromLotId` n'appartient pas au joueur ou au foyer indiqué.
 - Réponse : `{lotId, fromLotId, householdId, sequence}` ; snapshot diffusé comme pour `property.claim`.
 - Pont du launcher : type ajouté à la liste relayée. Un launcher antérieur à 0.1.29 répond `forbidden` (« Requête non relayée ») ; mod et launcher sont livrés dans le même paquet.
-- Mod : `HomeLotSync` envoie `property.move` quand le foyer a déjà un domicile serveur. Sur `unknown_type` ou `invalid_request` (serveur antérieur à 0.1.23), repli jusqu'à la prochaine connexion sur `property.release` puis `property.claim`, non atomique.
+- Mod : `HomeLotSync` envoie `property.move` quand le foyer a déjà un domicile serveur. Sur `unknown_type` ou `invalid_request`, l'ancien domicile est conservé et le déménagement suspendu jusqu'à la prochaine connexion ; aucune libération non atomique.
+- Correctif client0.1.50 : `ConnectionManager` autorise réellement `property.move` (absence antérieure reproduite sur le transport réel). ACK perdu : même UUID et même corps rejoués après5s, seulement pour le même foyer lié. ACK positif : lecture `snapshot` explicite et attente de la résidence confirmée avant la mutation suivante ; lecture rejouée après5s avec le même UUID si la vue tarde. Changement de foyer : attente et requêtes précédentes abandonnées, jamais rejouées pour un autre personnage.
 - Refus `lot_taken` reçu du serveur : ni nouvel essai ni libération de l'ancien domicile tant que le joueur n'a pas changé de maison ; un refus vu dans le snapshot tombe dès que le snapshot montre la maison libre.
 - NOT_TESTED_GAME.
 

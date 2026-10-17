@@ -1,3 +1,17 @@
+# Client de test0.1.50
+
+Client Windows de test 0.1.50 — déménagement
+
+- Corrige le rejet de property.move par le transport Python du mod. Le changement de domicile reste atomique et soumis aux droits du serveur.
+- Confirmation perdue : même UUID et corps rejoués après5s. Snapshot explicite après confirmation ; attend la nouvelle résidence avant une autre mutation.
+- Une nouvelle destination peut être retentée après trois échecs vers l'ancienne maison ; aucun foyer dupliqué ou occupant natif expulsé.
+- Vérifications :1321PythonPASS/1SKIP,194serveur,110launcher,12checks paquet et vrai remplacementWPF50PASS.
+
+LIMITES OUVERTES : résidence Analia bloquée si la destination est occupée par un foyer natif ; maison complète de Hatay (murs/sols/toits) NON transférée. Ce paquet ne corrige pas ces deux symptômes. Rendu sur deux vrais jeux et rafraîchissement de la carte NOT_TESTED_GAME. Aucun serveur/base/sauvegarde personnelle modifié ; serveur0.1.34 compatible. Les protections sauvegardes49 sont conservées.
+
+Test sans commande : actualiser les deux clients puis lancer leurs parties multijoueurs liées. Après un déménagement vers une maison libre et un enregistrement, vérifier ancien/nouveau domicile du foyer S4T sur l'autre PC, puis reconnexion. Diagnostics automatiques ; ne supprimer aucun foyer existant pour contourner un blocage.
+
+---
 # Client de test0.1.49
 
 Client Windows de test0.1.49 — protection des sauvegardes

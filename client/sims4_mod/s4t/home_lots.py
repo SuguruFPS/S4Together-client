@@ -15,6 +15,7 @@ dépend du transport d'apparence (docs/REMOTE_RENDER_SPIKE_2026-10-12.md). NOT_T
 """
 import re
 import uuid
+import time
 
 from .journal import log
 from .notify import game_notify
@@ -22,6 +23,7 @@ from .notify import game_notify
 TITLE = 'S4Together'
 SUFFIX = ' (S4T)'
 RETRY_TICKS = 30
+ACK_SECONDS = 5.0
 _NATIVE = re.compile(r'^[0-9]{1,20}$')
 _UNKNOWN = object()
 
@@ -114,16 +116,22 @@ class HomeLotSync:
     """Appelée par AutoLink après CharacterSync ; une seule requête en vol, jamais d'exception vers le jeu."""
 
     def __init__(self, read_home=game_home_lot, resolve=game_local_lot, notify=game_notify,
-                 new_id=lambda: str(uuid.uuid4())):
+                 new_id=lambda: str(uuid.uuid4()), clock=time.monotonic):
         self.read_home = read_home
         self.resolve = resolve
         self.notify = notify
         self.new_id = new_id
+        self.clock = clock
         self.informed = set()
         self.reset()
 
     def reset(self):
         self.waiting = None
+        self.waiting_body = None
+        self.waiting_at = 0.0
+        self.context = None
+        self.confirmed = None
+        self.refresh = None
         self.cooldown = 0
         self.refused = None
         # Vrai quand le refus vient du snapshot : il tombe dès que le snapshot montre la maison libre.
@@ -135,9 +143,26 @@ class HomeLotSync:
     def tick(self, manager, character, snapshot):
         if character is None or character.get('status') != 'bound':
             return None
+        context = (character.get('householdId'), character.get('binding', {}).get('gameHouseholdId'))
+        if self.context is not None and self.context != context:
+            for pending in (self.waiting, self.refresh):
+                if pending is not None and hasattr(manager, 'forget'):
+                    manager.forget(pending[0])
+            self.reset()
+        self.context = context
         self._resolve_remote(snapshot, character.get('householdId'))
         if self.waiting is not None:
+            if self.clock() - self.waiting_at >= ACK_SECONDS:
+                manager.request(self.waiting[1], dict(self.waiting_body), self.waiting[0])
+                self.waiting_at = self.clock()
             return None
+        if self.confirmed is not None:
+            if own_lot(snapshot, character.get('householdId')) != self.confirmed[0]:
+                self._refresh(manager)
+                return None
+            if self.refresh is not None and hasattr(manager, 'forget'):
+                manager.forget(self.refresh[0])
+            self.confirmed, self.refresh = None, None
         if self.cooldown > 0:
             self.cooldown -= 1
             return None
@@ -183,7 +208,15 @@ class HomeLotSync:
         request_id = self.new_id()
         manager.request(kind, payload, request_id)
         self.waiting = (request_id, kind, payload.get('lotId'))
+        self.waiting_body = dict(payload)
+        self.waiting_at = self.clock()
         return kind
+
+    def _refresh(self, manager):
+        if self.refresh is None or self.clock() - self.refresh[1] >= ACK_SECONDS:
+            request_id = self.refresh[0] if self.refresh else self.new_id()
+            manager.request('snapshot', {}, request_id)
+            self.refresh = (request_id, self.clock())
 
     def on_messages(self, manager, messages):
         for message in messages:
@@ -191,9 +224,12 @@ class HomeLotSync:
                 continue
             _, kind, lot_id = self.waiting
             self.waiting = None
+            self.waiting_body = None
             if message.get('ok') is True:
                 log('home_lot', kind + ':ok')
-                # Le snapshot diffusé par le serveur fait foi ; on le redemande s'il tarde.
+                # Attend la propriété canonique, jamais un second déménagement basé sur une ancienne vue.
+                self.confirmed = (None if kind == 'property.release' else lot_id,)
+                self._refresh(manager)
                 continue
             code = message.get('code') if isinstance(message.get('code'), str) else 'error'
             log('home_lot', kind + ':' + code)

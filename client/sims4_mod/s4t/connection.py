@@ -178,7 +178,7 @@ class ConnectionManager:
         if request_type not in ('snapshot', 'chat', 'object.set', 'ping', 'ack', 'character.resume', 'character.bind', 'character.checkpoint',
                                 'game.join', 'game.state', 'game.leave', 'game.snapshot', 'game.appearance.publish', 'game.appearance.list', 'game.appearance.get', 'game.visibility.report',
                                 'game.interaction', 'game.speed.get', 'game.speed.set', 'terrain.publish', 'terrain.get', 'terrain.catalog',
-                                'property.claim', 'property.release'):
+                                'property.claim', 'property.release', 'property.move'):
             raise ValueError('Commande mod non autorisée')
         if len(json.dumps(request).encode('utf-8')) > 65536:
             raise ValueError('Requête trop grande')

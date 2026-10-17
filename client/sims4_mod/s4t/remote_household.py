@@ -1,6 +1,6 @@
 """Foyer « Nom (S4T) » de chaque autre joueur, créé dans MA partie multijoueur par les voies natives du jeu (12/10/2026).
 
-Le Sim de l'ami est un vrai SimInfo du jeu : il se promène, se croise en ville, se parle comme un PNJ. Il porte
+Le Sim de l'ami est un vrai SimInfo du jeu, représenté par une copie passive protégée par offline_guard. Il porte
 l'apparence native publiée par son joueur (appearance_sync) et habite la maison qu'il a réservée sur le serveur
 (home_lots). Séquence reprise de interactions/utils/creation.pyc _CloneSimInfoSource._create_clone_sim_info et
 du service de population (_move_household_into_zone → Household.move_into_zone), désassemblés dans 1.128 :
@@ -90,6 +90,8 @@ class RemoteHouseholds:
     def __init__(self, adapter=None):
         self.adapter = adapter if adapter is not None else GameHouseholds()
         self.attempts = {}
+        self.failed_actions = {}
+        self.blocked_homes = {}
         self.cooldown = 0
         self.last = None
         self.ghosts = {}
@@ -98,6 +100,7 @@ class RemoteHouseholds:
         # Nouvelle zone : foyers relus ; les échecs déjà comptés restent (pas de boucle de création ratée).
         self.cooldown = 0
         self.ghosts = {}
+        self.blocked_homes = {}
 
     def tick(self, character, names, appearances, homes):
         if character is None or character.get('status') != 'bound':
@@ -109,18 +112,40 @@ class RemoteHouseholds:
         players = {pid: {'name': names.get(pid), 'sha256': a['sha256'], 'data': a['data']}
                    for pid, a in appearances.items()}
         homes_by_player = {h['playerId']: h for h in homes if isinstance(h, dict) and 'playerId' in h}
-        players = {pid: p for pid, p in players.items() if self.attempts.get(pid, 0) < MAX_ATTEMPTS}
-        action = plan(players, self.ghosts, homes_by_player)
+        self.blocked_homes = {}
+        for pid, home in homes_by_player.items():
+            ghost = self.ghosts.get(pid)
+            if ghost is not None and str(ghost.get('zoneId') or '') != home.get('zoneId'):
+                if home.get('zoneId') is None:
+                    self.blocked_homes[pid] = 'zone_unresolved'
+                elif home.get('occupiedLocally') is True:
+                    self.blocked_homes[pid] = 'occupied_locally'
+        action = None
+        for pid in sorted(players):
+            candidate = plan({pid: players[pid]}, self.ghosts, homes_by_player)
+            if candidate is None:
+                continue
+            kind, _, args = candidate
+            # Budget lié à l'opération précise : une nouvelle maison n'hérite pas d'un ancien échec.
+            # Le nom seul ne réarme pas une création ayant échoué.
+            key = (kind, args.get('householdId'), args.get('zoneId'), args.get('sha256'))
+            if self.failed_actions.get(pid) != key:
+                self.attempts.pop(pid, None)
+            if self.attempts.get(pid, 0) < MAX_ATTEMPTS:
+                action = candidate
+                break
         if action is None:
             return None
         kind, player_id, args = action
         try:
             getattr(self.adapter, kind)(player_id, **args)
             self.attempts.pop(player_id, None)
+            self.failed_actions.pop(player_id, None)
             log('remote_household', kind + ':ok')
             self.last = kind
         except Exception as error:
             self.attempts[player_id] = self.attempts.get(player_id, 0) + 1
+            self.failed_actions[player_id] = key
             self.cooldown = RETRY_TICKS
             log('remote_household', kind + ':' + type(error).__name__)
             self.last = kind + ':' + type(error).__name__
@@ -129,6 +154,7 @@ class RemoteHouseholds:
     def status(self):
         return {'ghosts': {pid: {'zoneId': g.get('zoneId'), 'instanced': g.get('instanced')} for pid, g in self.ghosts.items()},
                 'failed': sorted(pid for pid, n in self.attempts.items() if n >= MAX_ATTEMPTS),
+                'blockedHomes': dict(self.blocked_homes),
                 'last': self.last, 'gameReadiness': 'NOT_TESTED_GAME'}
 
 

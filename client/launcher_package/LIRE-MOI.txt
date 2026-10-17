@@ -1,4 +1,11 @@
-S4Together 0.1.49-game-test — mod de test, launcher 0.1.49 (serveur recommandé 0.1.34). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.50-game-test — mod de test, launcher 0.1.50 (serveur recommandé 0.1.34). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES0.1.50 — déménagement automatique
+La demande atomique de changement de domicile traverse désormais le transport du mod.
+Confirmation perdue : même requête rejouée après 5 secondes ; actualisation de la vue serveur avant un autre déménagement.
+Les copies distantes peuvent retenter un nouveau domicile après les échecs de l'ancien.
+Limites : foyer natif déjà présent non expulsé automatiquement ; résidence d'Analia encore à résoudre dans ce cas.
+Maison construite de Hatay : transfert complet murs/sols/toits NON implémenté, pas corrigé par cette version.
 
 NOUVEAUTES0.1.49 — protection en cas de coupure
 Checkpoint des changements d'argent toutes les15secondes environ. Un refus temporaire de la base est retente ; une reponse perdue ne double pas la sauvegarde serveur.
