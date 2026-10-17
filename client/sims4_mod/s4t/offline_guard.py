@@ -151,6 +151,18 @@ def veto_autonomy(original, failure=False):
     return test
 
 
+def veto_invitation(is_blocked, original):
+    """Refuse le clic/creation d'une invitation PNJ issue d'un proxy, avant loots ou voyage.
+
+    Ne termine pas le noeud via complete_node : ses callbacks de completion
+    pourraient eux-memes produire des effets. Aucun nettoyage force : un ancien
+    noeud peut rester actif jusqu'au nettoyage natif du service, non prouve ici.
+    Pas de suppression d'entite ni modification de foyer.
+    """
+    guarded = veto(is_blocked, original, None)
+    return guarded
+
+
 class GameOffline:
     """Adaptateur du jeu. Chaque méthode peut lever ; OfflineGuard journalise et continue."""
 
@@ -170,6 +182,14 @@ class GameOffline:
         node = drama_node.BaseDramaNode
         if getattr(node.run, 's4t_original', None) is None:
             node.run = veto(is_blocked, node.run, drama_node.DramaNodeRunOutcome.FAILURE)
+        try:
+            from drama_scheduler.npc_invite_situation_drama_node import NPCInviteSituationDramaNode
+            for method in ('_handle_dialog', '_handle_picker_dialog', '_create_situation'):
+                original = getattr(NPCInviteSituationDramaNode, method)
+                if getattr(original, 's4t_original', None) is None:
+                    setattr(NPCInviteSituationDramaNode, method, veto_invitation(is_blocked, original))
+        except (ImportError, AttributeError) as error:
+            log('offline_guard', 'invitation_hook:' + type(error).__name__)
         try:
             from autonomy.autonomy_component import AutonomyComponent
             original = AutonomyComponent._test_full_autonomy

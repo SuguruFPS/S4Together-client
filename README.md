@@ -1,3 +1,14 @@
+# Client de test0.1.48
+
+Client Windows de test0.1.48
+
+- Protection supplementaire contre les invitations natives de copies de joueurs : veto au clic, au picker et a la creation de situation, avant les effets connus. Vrais PNJ conserves. Aucun voyage force.
+- Correctifs installation et reprise des meubles47 conserves.
+- Verification :1302PythonPASS/1SKIP, couverture93.07%,186serveur,12checks paquet et vrai remplacement/demarrageWPF48 profil isole PASS.
+
+NOT_TESTED_GAME : autres voies natives et invitations authentifiees owner vers destinataire restent ouvertes. Un ancien noeud refuse peut rester actif jusqu'au nettoyage natif du service ; nettoyage sans effets non prouve. Pas de nouvelle correction de maison complete Hatay, des meubles manquants, de l'heure/meteo/vitesse ou des conversations. Aucun serveur/base/save joueur modifie.
+
+---
 # Candidat client Windows 0.1.47
 
 Installation du mod transactionnelle et reprise limitee de l application des objets de terrain apres echec temporaire. Diagnostics automatiques de propriete/lecture/application. La protection Defender reste active ; une autorisation Windows personnelle peut etre necessaire.
