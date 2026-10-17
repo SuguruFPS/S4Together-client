@@ -1,3 +1,11 @@
+## Developpement non publie apres 0.1.48
+
+Prototype de vitesse native automatique, inactif sans capacite serveur explicite.
+Les controles de session/flux et les pauses prioritaires du jeu sont conserves.
+NOT_TESTED_GAME : horloge globale et independance des lots non prouvees ; ne pas activer en production.
+La derniere release telechargeable reste 0.1.48. Pas de nouvelle correction annoncee pour les meubles,
+maisons completes, heure/meteo ou conversations.
+
 # Client de test0.1.48
 
 Client Windows de test0.1.48

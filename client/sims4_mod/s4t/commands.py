@@ -66,6 +66,8 @@ def auto_link():
             return sync, game_events(sync.mark_dirty)
         from .offline_guard import OfflineGuard
         from .remote_actions import RemoteActions
+        from .native_speed import NativeSpeedSync, GameSpeed
+        speed = GameSpeed()
         def native_probe():
             from . import native_probe as probe
             probe.write(probe.inspect())
@@ -76,7 +78,8 @@ def auto_link():
                          remote_motion=motion, interaction_observer=interactions,
                          interaction_publisher=InteractionPublisher(peer_streams=lambda: dict(motion.streams)),
                          terrain_factory=terrain_factory, offline_guard=OfflineGuard(), season_phase=SeasonPhaseSync(), native_probe=native_probe,
-                         remote_actions=RemoteActions(motion))
+                         remote_actions=RemoteActions(motion),
+                         speed_sync=NativeSpeedSync(speed.read, speed.hold, speed.release))
     return _auto
 
 

@@ -1,5 +1,10 @@
 # Contrat Alpha 1
 
+Extension experimentale de vitesse native (desactivee par defaut) : voir
+`docs/NATIVE_SPEED_SPIKE.md`. `game.speed.get/set` exigent le stream de presence courant ;
+le claim du LotId natif, jamais l'alias zone ni un champ client, donne le droit de controle.
+Sans capacite snapshot `nativeSpeed:1`, le mod ne touche pas a la vitesse du jeu.
+
 WebSocket `/ws`, JSON UTF-8, enveloppe requête `{v:1,id:"UUID",type:"hello",payload:{...}}`.
 Réponse directe `{v:1,id,type:"ack",ok:true,payload:{...}}` ou `{v:1,id,type:"error",ok:false,code:"...",message:"..."}`.
 Événement `{v:1,type:"players"|"chat"|"object"|"snapshot",payload:{...}}`.

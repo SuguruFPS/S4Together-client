@@ -29,12 +29,13 @@ class AutoLink:
                  character_sync=None, presence_sync=None, home_sync=None, appearance_sync=None, remote_households=None,
                  remote_motion=None, interaction_observer=None, interaction_publisher=None,
                  terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None, native_probe=None,
-                 disconnect_guard=None, remote_actions=None):
+                 disconnect_guard=None, remote_actions=None, speed_sync=None):
         self.runtime = runtime
         self.offline_guard = offline_guard
         self.interaction_observer = interaction_observer
         self.interaction_publisher = interaction_publisher
         self.remote_actions = remote_actions
+        self.speed_sync = speed_sync
         self.interaction_context = None
         self.interaction_stream = None
         self.appearance_sync = appearance_sync
@@ -437,12 +438,16 @@ class AutoLink:
         self._forget_motion()
         self._forget_interactions()
         self._forget_terrain()
+        if self.speed_sync is not None:
+            manager, _ = self.runtime()
+            self.speed_sync.reset(manager)
 
     def deliver(self, manager, messages):
         """Réponses lues hors de tick() (commande s4t.poll) : sans cela, un ACK personnage serait perdu."""
         for name, sync in (('character', self.character_sync), ('presence', self.presence_sync), ('home_lot', self.home_sync),
                            ('appearance', self.appearance_sync), ('remote_motion', self.remote_motion),
-                           ('interaction_publisher', self.interaction_publisher), ('terrain', self.terrain_sync)):
+                           ('interaction_publisher', self.interaction_publisher), ('terrain', self.terrain_sync),
+                           ('native_speed', self.speed_sync)):
             if sync is None:
                 continue
             try:
@@ -521,6 +526,16 @@ class AutoLink:
                                              getattr(presence, 'state', None) == 'joined')
             except Exception as error:
                 log('network_safety', type(error).__name__)
+            if self.speed_sync is not None:
+                try:
+                    context = None
+                    if (status.get('authenticated') and observation.get('loaded')
+                            and getattr(sync, 'state', None) == 'bound'
+                            and getattr(presence, 'state', None) == 'joined'):
+                        context = (presence.zone_id, presence.stream_id)
+                    self.speed_sync.tick(manager, context)
+                except Exception as error:
+                    log('native_speed', type(error).__name__)
             self._native_probe(status, observation.get('loaded'))
             try:
                 self._terrain(manager, status, observation.get('loaded'))
