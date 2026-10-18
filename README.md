@@ -1,3 +1,5 @@
+Publication0.1.54 en attente de confirmation explicite Citadel. Derniere release automatique :0.1.53. Serveur0.1.37 installe et verifie.
+
 # Client de test0.1.54
 
 Client0.1.54 — reprise des meubles et actions
