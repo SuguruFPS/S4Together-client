@@ -61,7 +61,10 @@ class GameAdapter:
                     result['zoneId'] = _native(getattr(zone, 'id', None))
                 if sim is not None:
                     result['activeSimId'] = _native(getattr(sim, 'id', None))
-                result['loaded'] = result['zoneId'] is not None and result['activeSimId'] is not None
+                # Les identifiants persistent pendant chargement/fermeture et Gérer les mondes.
+                # Ils ne prouvent pas que la simulation est prête à recevoir des mutations.
+                result['loaded'] = (result['zoneId'] is not None and result['activeSimId'] is not None
+                                    and getattr(zone, 'is_zone_running', False) is True)
             except (AttributeError, TypeError, RuntimeError):
                 result['readError'] = 'services_unavailable'
         transition = 'unchanged'

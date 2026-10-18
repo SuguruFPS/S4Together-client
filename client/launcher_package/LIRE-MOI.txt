@@ -1,4 +1,12 @@
-S4Together 0.1.55-game-test — mod de test, launcher 0.1.55 (serveur recommandé 0.1.38). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.56-game-test — mod de test, launcher 0.1.56 (serveur recommandé 0.1.39). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.56 — retour dans son foyer et résidences enregistrées
+Le mod attend la simulation réellement active et arrête les callbacks au déchargement.
+Le garde des résidences laisse passer le foyer actif ; la protection des copies distantes reste active en jeu.
+Une copie déjà enregistrée peut retrouver son domicile serveur sans nouvelle apparition en ligne.
+Serveur39 : reprise cohérente après propre écriture engagée mais confirmation perdue.
+La cause exacte de l'erreur102 doit encore être confirmée dans le journal du jeu concerné.
+Ne supprime aucune sauvegarde et ne recrée pas ton personnage pour tester cette version.
 
 NOUVEAUTES 0.1.55 — liste des imports solo
 Seuls les humains du foyer actif de chaque sauvegarde et les créations de Ma bibliothèque sont proposés.

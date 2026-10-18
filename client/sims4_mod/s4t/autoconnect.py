@@ -53,6 +53,7 @@ class AutoLink:
         self.scheduler = scheduler
         self.cancel = cancel
         self.handle = None
+        self.tearing_down = False
         self.ticks = 0
         self.sent = None
         self.native_probe = native_probe
@@ -78,6 +79,7 @@ class AutoLink:
 
     def on_zone_loaded(self):
         """Vrai si le launcher a demandé l'auto-connexion et que le relevé périodique tourne."""
+        self.tearing_down = False
         try:
             settings = self.load_settings()
         except (ValueError, OSError) as error:
@@ -437,9 +439,8 @@ class AutoLink:
         # zone quittée ne doivent pas lui opposer les ACL d'une partie encore considérée chargée.
         # Le prochain tick chargé et lié les réinstalle depuis les résidences serveur validées.
         try:
-            clear = getattr(self.remote_households, 'clear_reservations', None)
-            if clear is not None:
-                clear()
+            self.tearing_down = True
+            self.stop()
         except Exception as error:
             log('residence_teardown', type(error).__name__)
         try:
@@ -488,18 +489,19 @@ class AutoLink:
         self.handle = self.scheduler(self, NETWORK_SECONDS, self.pump)
 
     def stop(self):
+        handle, self.handle = self.handle, None
+        try:
+            if handle is not None:
+                self.cancel(handle)
+        except Exception as error:
+            log('autoconnect_cancel', type(error).__name__)
         clear = getattr(self.remote_households, 'clear_reservations', None)
         if clear is not None:
             clear()
-        if self.handle is None:
-            return
-        handle, self.handle = self.handle, None
-        try:
-            self.cancel(handle)
-        except Exception as error:
-            log('autoconnect_cancel', type(error).__name__)
 
     def pump(self, _handle=None):
+        if self.tearing_down:
+            return
         # Réception/ACK plus réactifs, sans multiplier les scans terrain, checkpoints ou délais par quatre.
         full = self.network_ticks % int(POLL_SECONDS / NETWORK_SECONDS) == 0
         self.network_ticks += 1
@@ -516,6 +518,8 @@ class AutoLink:
             log('autoconnect_pump', type(error).__name__)
 
     def tick(self, _handle=None):
+        if self.tearing_down:
+            return
         # Une exception ne doit jamais remonter dans la boucle d'alarmes du jeu.
         try:
             manager, adapter = self.runtime()

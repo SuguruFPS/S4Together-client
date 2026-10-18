@@ -8,6 +8,7 @@ import json
 import os
 import uuid
 from pathlib import Path
+from .journal import log
 
 
 def replaceable(household, active_id, zone_id):
@@ -113,9 +114,10 @@ class ResidenceJournal:
 class ResidenceGuard:
     """Bloque les emménagements PNJ sur une résidence serveur et les déménagements autonomes de copies."""
 
-    def __init__(self):
+    def __init__(self, active_household_id=lambda: None):
         self.homes = {}
         self.enabled = False
+        self.active_household_id = active_household_id
 
     def set_homes(self, homes):
         self.homes, self.enabled = dict(homes), True
@@ -126,13 +128,24 @@ class ResidenceGuard:
     def wrap(self, original):
         @functools.wraps(original)
         def wrapped(household, zone_id=0, *args, **kwargs):
+            # Inactif pendant les transitions : ne même pas lire les propriétés natives.
+            if not self.enabled:
+                return original(household, zone_id, *args, **kwargs)
+            try:
+                active_id = self.active_household_id()
+            except Exception:
+                active_id = None
+            if active_id is not None and getattr(household, 'id', None) == active_id:
+                return original(household, zone_id, *args, **kwargs)
             from .remote_household import parse_description
             parsed = parse_description(getattr(household, 'description', None))
             if self.enabled:
                 expected = self.homes.get(parsed[0]) if parsed else None
                 if parsed and (expected is None or zone_id != expected):
+                    log('residence_guard_block', 'remote_move')
                     return None
                 if zone_id in self.homes.values() and (not parsed or expected != zone_id):
+                    log('residence_guard_block', 'reserved_home')
                     return None
             return original(household, zone_id, *args, **kwargs)
         wrapped.s4t_residence_guard = self

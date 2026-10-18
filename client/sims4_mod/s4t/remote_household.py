@@ -44,22 +44,25 @@ def display_name(name):
     return name
 
 
-def plan(players, ghosts, homes):
+def plan(players, ghosts, homes, names=None):
     """Prochaine action, ou None. Python pur.
 
     players : {playerId: {'name', 'sha256', 'data'}} — apparences validées des autres joueurs.
     ghosts : {playerId: {'householdId', 'sha16', 'firstName', 'householdName', 'zoneId', 'instanced'}} — foyers S4T.
     homes : {playerId: {'zoneId', 'occupiedLocally'}} — maison résolue dans cette partie (home_lots).
     """
-    for player_id in sorted(players):
-        player = players[player_id]
-        name = display_name(player.get('name'))
+    # Le domicile d'une copie déjà enregistrée ne dépend pas d'une nouvelle
+    # publication d'apparence en mémoire (absente après déconnexion/redémarrage).
+    known_residents = set(ghosts).intersection(homes).intersection(names or {})
+    for player_id in sorted(set(players).union(known_residents)):
+        player = players.get(player_id)
+        name = display_name(player.get('name') if player else (names or {}).get(player_id))
         ghost = ghosts.get(player_id)
         if ghost is None:
             if len(ghosts) >= MAX_GHOSTS:
                 continue
             return ('create', player_id, {'name': name, 'sha256': player['sha256'], 'data': player['data']})
-        if ghost['sha16'] != player['sha256'][:16] and not ghost['instanced']:
+        if player is not None and ghost['sha16'] != player['sha256'][:16] and not ghost['instanced']:
             return ('appearance', player_id, {'householdId': ghost['householdId'], 'sha256': player['sha256'],
                                               'data': player['data']})
         if ghost['sha16'] == PENDING:
@@ -113,6 +116,9 @@ class RemoteHouseholds:
             self.adapter.clear_reservations()
 
     def tick(self, character, names, appearances, homes):
+        if hasattr(self.adapter, 'is_ready') and not self.adapter.is_ready():
+            self.clear_reservations()
+            return None
         if character is None or character.get('status') != 'bound':
             if hasattr(self.adapter, 'clear_reservations'):
                 self.adapter.clear_reservations()
@@ -135,8 +141,11 @@ class RemoteHouseholds:
                 elif home.get('occupiedLocally') is True and home.get('replaceableNpc') is not True:
                     self.blocked_homes[pid] = 'occupied_locally'
         action = None
-        for pid in sorted(players):
-            candidate = plan({pid: players[pid]}, self.ghosts, homes_by_player)
+        known_residents = set(self.ghosts).intersection(homes_by_player).intersection(names)
+        for pid in sorted(set(players).union(known_residents)):
+            candidate = plan({pid: players[pid]} if pid in players else {},
+                             self.ghosts, {pid: homes_by_player[pid]} if pid in homes_by_player else {},
+                             {pid: names[pid]} if pid in names else {})
             if candidate is None:
                 continue
             kind, _, args = candidate
@@ -175,6 +184,13 @@ class RemoteHouseholds:
 class GameHouseholds:
     """Adaptateur du jeu. Chaque méthode lève en cas d'échec ; RemoteHouseholds compte et espace les essais."""
 
+    def is_ready(self):
+        try:
+            import services
+            return getattr(services.current_zone(), 'is_zone_running', False) is True
+        except Exception:
+            return False
+
     def _residence_journal(self):
         import hashlib
         import os
@@ -197,12 +213,15 @@ class GameHouseholds:
             guard.clear()
 
     def sync_homes(self, homes):
+        if not self.is_ready():
+            self.clear_reservations()
+            return
         import services
         from sims.household import Household
         from .residence import ResidenceGuard
         guard = getattr(Household.move_into_zone, 's4t_residence_guard', None)
         if guard is None:
-            guard = ResidenceGuard()
+            guard = ResidenceGuard(active_household_id=services.active_household_id)
             Household.move_into_zone = guard.wrap(Household.move_into_zone)
             Household.set_household_lot_ownership = guard.wrap(Household.set_household_lot_ownership)
         self.residence_guard = guard
