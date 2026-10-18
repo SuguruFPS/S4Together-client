@@ -26,6 +26,7 @@ ARRIVE_DISTANCE = 0.75      # En deçà, le clone est réputé arrivé : aucune 
 REPLAN_DISTANCE = 1.0       # La cible doit avoir bougé d'autant pour replanifier un trajet en cours.
 GAP_DISTANCE = 25.0         # Au-delà : grand écart, aucun mouvement avant qu'un instantané confirme la pose.
 GAP_RESYNC_TICKS = 60       # Espacement des resynchronisations pour grand écart, par clone.
+GAP_MAX_ASKS = 3            # Instantanés demandés au plus par épisode de grand écart resté sans confirmation.
 MIN_LEVEL, MAX_LEVEL = -8, 16
 ROUTE_RETRY_TICKS = 5
 MAX_ROUTE_TRIES = 3         # Trajet refusé ou bloqué : arrêt, jamais de téléportation de secours.
@@ -74,16 +75,23 @@ def clean_pose(sim):
 
 def new_move():
     return {'target': None, 'tries': 0, 'wait': 0, 'stuck': False, 'gap': None, 'gap_wait': 0,
-            'progress': None, 'idle': 0}
+            'progress': None, 'idle': 0, 'asks': 0, 'origin': None}
 
 
 def _far(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1]) > GAP_DISTANCE
 
 
-def decide(current, pose, move):
+def decide(current, pose, move, ready=True):
     """'none', 'route', 'level' (étage inconnu) ou 'gap' (grand écart à resynchroniser) pour un clone instancié.
-    Jamais de téléportation. Un appel par tick ; `move` est l'état du trajet."""
+    Jamais de téléportation. Un appel par tick ; `move` est l'état du trajet. `ready` : aucun instantané en vol
+    ni en délai, condition d'une nouvelle demande pour un grand écart resté sans confirmation.
+
+    Épisode de grand écart : il s'ouvre par une demande (asks=1). Tant qu'aucun instantané ne confirme la pose,
+    une nouvelle demande part au plus tous les GAP_RESYNC_TICKS, quand `ready`, jusqu'à GAP_MAX_ASKS au total.
+    Compteur réarmé seulement par : pose confirmée (le saut suivant ouvre un nouvel épisode), écart refermé,
+    arrivée, nouvel état de trajet (reset, retrait ou adoption du clone), ou cible déplacée de plus de
+    GAP_DISTANCE depuis l'ouverture de l'épisode (mouvement distinct). Aucun trajet sans pose confirmée."""
     for key in ('wait', 'gap_wait'):
         if move[key] > 0:
             move[key] -= 1
@@ -99,15 +107,21 @@ def decide(current, pose, move):
         move['idle'] = move.get('idle', 0) + 1
     other_level = level != current.get('level')
     if not other_level and math.hypot(target[0] - here[0], target[1] - here[1]) <= ARRIVE_DISTANCE:
-        move.update(target=None, tries=0, stuck=False, gap=None)
+        move.update(target=None, tries=0, stuck=False, gap=None, asks=0, origin=None)
         return 'none'
     if not _far(target, here):
-        move['gap'] = None
-    elif move['gap'] in (None, 'asked') or _far(target, move['gap']):
-        # Déplacement rapide : rien ne bouge tant qu'un instantané n'a pas confirmé une pose proche de celle-ci.
-        if move['gap'] == 'asked' or move['gap_wait'] > 0:
+        move.update(gap=None, asks=0, origin=None)
+    elif move['gap'] == 'asked' and not (move['asks'] >= GAP_MAX_ASKS and _far(target, move['origin'])):
+        # Instantané perdu, refusé, ancien ou sans ce clone : nouvelle demande espacée et bornée, jamais de trajet.
+        if move['gap_wait'] > 0 or not ready or move['asks'] >= GAP_MAX_ASKS:
             return 'none'
-        move.update(target=None, tries=0, stuck=False, gap='asked', gap_wait=GAP_RESYNC_TICKS)
+        move.update(asks=move['asks'] + 1, gap_wait=GAP_RESYNC_TICKS)
+        return 'gap'
+    elif move['gap'] == 'asked' or move['gap'] is None or _far(target, move['gap']):
+        # Déplacement rapide : rien ne bouge tant qu'un instantané n'a pas confirmé une pose proche de celle-ci.
+        if move['gap_wait'] > 0:
+            return 'none'
+        move.update(target=None, tries=0, stuck=False, gap='asked', gap_wait=GAP_RESYNC_TICKS, asks=1, origin=target)
         return 'gap'
     last = move['target']
     if last is None or math.hypot(target[0] - last[0], target[1] - last[1]) > REPLAN_DISTANCE:
@@ -632,7 +646,8 @@ class RemoteMotion:
                 continue
             if not self._mine(player, household, current) and not self._adopt(player, household, current):
                 continue
-            action = decide(current, pose, self.moves.setdefault(player, new_move()))
+            action = decide(current, pose, self.moves.setdefault(player, new_move()),
+                            ready=self.waiting is None and self.cooldown == 0)
             if action == 'gap':
                 self.gaps += 1
                 self.need.add('large_gap')

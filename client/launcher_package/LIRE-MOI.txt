@@ -1,4 +1,8 @@
-S4Together 0.1.58-game-test — mod de test, launcher 0.1.58 (serveur recommandé 0.1.40). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.59-game-test — mod de test, launcher 0.1.59 (serveur recommandé 0.1.41). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.59 — reprise apres instantane perdu
+Un grand ecart de position ne reste plus definitivement bloque apres la perte du premier instantane : jusqu'a trois demandes espacees par episode, sans teleportation. Une pose confirmee est toujours necessaire avant le trajet. Apres trois echecs, un nouvel evenement de resynchronisation reste necessaire. Cela ne garantit pas encore que tous les blocages observes en jeu soient corriges.
+Serveur41 : historique prive borne du releve precedent de chaque terrain dans la meme transaction que le relevé courant. Ce journal concerne objets/contours reseau, pas l'import complet des murs/sols/toits ni une restauration automatique du jeu. La maison complete de Hatay reste a corriger.
 
 NOUVEAUTES 0.1.58 — reprise des residences apres echec
 La restauration d'un ancien foyer PNJ apres echec d'emmenagement n'est plus bloquee par notre propre garde ; le journal est conserve tant que la restauration n'est pas confirmee. Les demenagements echoues peuvent etre retentes au prochain chargement de zone, sans reautoriser les creations ratees. Cela ne force jamais le deplacement d'un joueur ou d'un foyer joue. Le rendu chez les deux joueurs reste a verifier.
