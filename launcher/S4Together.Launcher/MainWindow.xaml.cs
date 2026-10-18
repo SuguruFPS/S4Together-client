@@ -701,6 +701,11 @@ public partial class MainWindow : Window
     void ShowCharacters(CharacterRoster? loaded)
     {
         roster = loaded;
+        if (characterChoice == CharacterChoice.Local && chosenLocal?.Data is { } local && !LocalImportChoices.CanShow(local, loaded))
+        {
+            characterChoice = CharacterChoice.None; chosenLocal = null; preparedCharacter = null;
+            LocalSimList.SelectedIndex = -1;
+        }
         CharacterList.ItemsSource = loaded?.Characters.Select(c => new Choice(c.Id, c.Label(loaded.SelectedId)) { SimIds = c.GameSimIds, Portrait = localCards.FirstOrDefault(l => l.Data is { } sim && c.GameSimIds.Contains(sim.SimId.ToString(System.Globalization.CultureInfo.InvariantCulture)))?.Portrait }).ToList();
         CharacterEmpty.Visibility = loaded is { Characters.Count: > 0 } ? Visibility.Collapsed : Visibility.Visible;
         CharacterEmpty.Text = loaded is null ? "Connecte-toi au serveur pour charger tes personnages."
@@ -762,7 +767,7 @@ public partial class MainWindow : Window
         if (!IsInitialized) return;
         var query = CharacterSearch.Text.Trim();
         System.Windows.Data.CollectionViewSource.GetDefaultView(LocalSimList.ItemsSource ?? localCards).Filter = item =>
-            item is LocalSimCard sim && !sim.IsNew && (sim.Data is null || roster?.BoundFor(sim.Data) is null) &&
+            item is LocalSimCard sim && !sim.IsNew && sim.Data is { } local && LocalImportChoices.CanShow(local, roster) &&
                 (sim.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) || sim.Household.Contains(query, StringComparison.CurrentCultureIgnoreCase));
         if (CharacterList.ItemsSource is { } items)
             System.Windows.Data.CollectionViewSource.GetDefaultView(items).Filter = item => item is Choice c && c.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase);
@@ -808,7 +813,7 @@ public partial class MainWindow : Window
         {
             var profiles = localProfile is { } chosen ? new[] { chosen } : LocalSimCatalog.FindProfiles(ModsFolder).ToArray();
             var found = await Task.Run(() => LocalSimCatalog.Scan(profiles));
-            localCards = found.Sims.Select(s => new LocalSimCard(s)).ToList();
+            localCards = found.Sims.Select(s => new LocalSimCard(LocalImportChoices.PreferActiveSource(s))).ToList();
             localCards.Add(new LocalSimCard(null));
             LocalSimList.ItemsSource = localCards;
             LocalSimList.SelectedIndex = -1;
@@ -816,7 +821,9 @@ public partial class MainWindow : Window
             CharacterSearch_Changed(CharacterSearch, new TextChangedEventArgs(TextBox.TextChangedEvent, UndoAction.None));
             _ = LoadCardPortraitsAsync(localCards);
             localSimsScanned = true;
-            LocalSimStatus.Text = found.Sims.Count > 0 ? $"{found.Sims.Count} Sim(s) trouvé(s) dans {found.FilesRead} fichier(s). Choisis ton Sim dans la liste."
+            var visibleCount = localCards.Count(c => c.Data is { } s && LocalImportChoices.CanShow(s, roster));
+            LocalSimStatus.Text = visibleCount > 0 ? $"{visibleCount} Sim(s) proposé(s) dans tes foyers actifs et Ma bibliothèque. Les animaux restent dans leur famille."
+                : found.Sims.Count > 0 ? "Aucun foyer solo à importer. Tes personnages déjà liés sont dans la section Multijoueur."
                 : "Aucun Sim trouvé. Choisis le dossier Documents → Electronic Arts → Les Sims 4 (ou The Sims 4), qui contient saves et Tray.";
             if (found.Problems.Count > 0) LocalSimStatus.Text += "\n" + string.Join("\n", found.Problems.Take(3));
             if (found.Folders.Count > 0) LocalSimStatus.Text += "\nDossier(s) lu(s) : " + string.Join(" ; ", found.Folders);

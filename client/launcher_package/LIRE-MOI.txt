@@ -1,4 +1,11 @@
-S4Together 0.1.54-game-test — mod de test, launcher 0.1.54 (serveur recommandé 0.1.37). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.55-game-test — mod de test, launcher 0.1.55 (serveur recommandé 0.1.38). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.55 — liste des imports solo
+Seuls les humains du foyer actif de chaque sauvegarde et les créations de Ma bibliothèque sont proposés.
+Les voisins et foyers visités sont masqués ; les animaux restent dans leur famille.
+Un foyer déjà lié au serveur ne réapparaît pas en solo sous le nom d'un autre membre.
+Aucun fichier .save ni aucun Sim n'est supprimé. Les autres foyers d'une même partie
+restent dans le jeu : charge puis enregistre le foyer voulu pour le proposer à l'import.
 
 NOUVEAUTES 0.1.54 — reprise et actions
 Reprise automatique des meubles et trajets après échec temporaire. Une application partielle

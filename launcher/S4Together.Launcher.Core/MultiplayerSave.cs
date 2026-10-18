@@ -6,7 +6,9 @@ public sealed record MultiplayerSave(string FilePath, string Name, DateTime Save
     public static MultiplayerSave? Find(CharacterInfo character, IEnumerable<LocalSim> sims)
     {
         if (!character.Bound || character.GameSimIds.Count == 0) return null;
-        var candidates = sims.Where(s => s.Source == "Partie enregistrée" && s.HouseholdId.ToString(System.Globalization.CultureInfo.InvariantCulture) == character.GameHouseholdId)
+        var candidates = sims.SelectMany(s => new[] { s }.Concat(s.PortraitSources))
+            .DistinctBy(s => (s.FilePath.ToUpperInvariant(), s.SimId))
+            .Where(s => s.Source == "Partie enregistrée" && s.HouseholdId.ToString(System.Globalization.CultureInfo.InvariantCulture) == character.GameHouseholdId)
             .GroupBy(s => s.FilePath, StringComparer.OrdinalIgnoreCase)
             .Where(group => character.GameSimIds.All(id => group.Any(s => s.SimId.ToString(System.Globalization.CultureInfo.InvariantCulture) == id)) &&
                 group.All(s => s.IsPet || character.GameSimIds.Contains(s.SimId.ToString(System.Globalization.CultureInfo.InvariantCulture))))
