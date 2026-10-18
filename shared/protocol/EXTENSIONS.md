@@ -378,6 +378,16 @@ Un heartbeat launcher `ping` toutes les5secondes doit recevoir son ACK sous5seco
 
 Capacité snapshot `terrainObjectsOnly:true`. `terrain.publish` conserve ses règles et champs, avec `objectsOnly:true` optionnel et strictement booléen vrai, identique sur toutes les pages. Le hash porte alors sur `{blocks:[],lotId,objects,schema:2}` en ordre canonique. Le schéma2 indique des contours inconnus, jamais une suppression de pièces ; aucun contour ne peut accompagner ce mode. Tous les objets doivent être lisibles. Le serveur conserve les derniers contours complets dans le champ privé persistant `PreservedBlocks` ; les relevés complets schéma1 restent compatibles. `terrain.get/catalog` renvoie le schéma reçu et validé. Les anciens clients refusent le schéma2 sans appliquer d'objet. Les droits de propriété, pagination, hashes, CAS et quotas restent obligatoires.
 
+### Placement d'une cible d'interaction — serveur37/client54
+
+Le snapshot annonce `interactionTargetPlacement:1` à sa racine. Une cible objet peut porter
+`placement:{x,y,z,level}` : coordonnées entières en millimètres dans ±1000000000 et niveau entier
+de -8 à 16. Forme exacte, booléens et fractions refusés ; `part` garde son type booléen.
+Sans cette capacité, le client omet le placement et conserve le contrat précédent.
+La partie d'un meuble utilise sa propre position. Le récepteur exige une cible unique à 2cm,
+de même définition, niveau et nature partie/objet. Ce contrat n'autorise ni contrôle du Sim
+local, ni action sociale implicite, ni téléportation. Voir AGENCY_INTERACTION_CONTRACT_2026-10-17.md.
+
 `local.save-context` est une requête du seul pont loopback authentifié, jamais relayée au serveur. Payload exact : `characterId` UUID, `householdId` et `slotId` chaînes natives positives, `simIds` tableau de 1 à 8 identifiants natifs uniques. Le mod ne l'émet que pour le foyer lié réellement chargé ; le launcher périme le contexte après 60 secondes et vérifie slot et liaison dans sa copie disque stable.
 
 `HEAD|PUT /private-saves/{characterId}/{sha256}` exige Authorization Bearer (jeton persistant privé), `X-S4T-Player` et `X-S4T-Session` UUID. Session active, propriétaire, sélection et liaison sont exigés avant réception et revérifiés avant commit. Pas de GET ni téléchargement public. HEAD 200 signifie copie identique déjà conservée ; 404 signifie absente. PUT est un flux octet avec Content-Length de 96 à 268435456 octets ; réponse `{status:"stored",sha256,bytes,validation:"quarantined"}`. Refus :401,400,411,413,429,503,408. HEAD limité à un contrôle/10s/joueur ; PUT un essai/30s/joueur, un transfert simultané global, timeout5min.

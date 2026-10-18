@@ -1,3 +1,27 @@
+# Client de test0.1.54
+
+Client0.1.54 — reprise des meubles et actions
+
+Assise et télévision : ciblage du meuble ou de sa partie exacte, capacité additive serveur37.
+Reprise espacée des meubles et trajets après incident, sans doublon dans les fixtures ni téléportation.
+Garde de chargement et libération des résidences avant voyage ; copies des joueurs protégées.
+
+Serveur0.1.37 installé après sauvegarde : journal des requêtes compressé sans perte àla prochaine
+écriture normale, reprise après incident par lecture/version/empreinte sans écrasement aveugle.
+
+Vérifié hors jeu :1424PythonPASS/1SKIP,200groupes serveur autonome,112launcher,
+12checks paquet et vrai remplacementWPF54. Archive vérifiée sur vraieSuguruDB HTTP/SQLite
+isolée après crash/sauvegarde/restauration :1100UUID conservés. Gitleaks : aucune fuite.
+
+Fermer les jeux, actualiser les deux clients/mods puis rejoindre les personnages déjà liés.
+Visiter normalement, comparer les meubles puis marcher, s'asseoir et regarder laTV.
+Aucune commande nécessaire. Rendu et gameplay : NOT_TESTED_GAME.
+
+Restent ouverts : cause exacte erreur109, maison complèteHatay/murs/sols/toits,
+chien/foyer complet, heure/météo/vitesse, sport et conversations complets, mods tiers.
+Cette version ne doit pas être présentée comme une synchronisation complète validée.
+
+---
 # Client de test 0.1.53
 
 Client 0.1.53 — meubles et déplacements distants

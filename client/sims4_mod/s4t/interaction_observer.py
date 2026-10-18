@@ -19,6 +19,7 @@ Un clone distant n'est nommé que si son foyer figure dans la carte validée par
 La description d'un foyer ne suffit jamais : elle est modifiable dans la partie.
 """
 import re
+import math
 import threading
 import time
 import uuid
@@ -96,11 +97,22 @@ def clean_target(value):
     if type(value) is not dict or type(value.get('kind')) is not str:
         return None
     fields = _TARGETS.get(value['kind'])
-    if fields is None or set(value) != {'kind'} | {name for name, _ in fields}:
+    placement = value.get('placement')
+    expected = {'kind'} | {name for name, _ in fields} if fields is not None else set()
+    if value['kind'] == 'object' and 'placement' in value:
+        expected.add('placement')
+        if (type(placement) is not dict or set(placement) != {'x', 'y', 'z', 'level'}
+                or any(type(placement[k]) is not int or abs(placement[k]) > 10 ** 9 for k in ('x', 'y', 'z'))
+                or type(placement['level']) is not int or not -8 <= placement['level'] <= 16):
+            return None
+    if fields is None or set(value) != expected:
         return None
     if not all(valid(value[name]) for name, valid in fields):
         return None
-    return dict(value)
+    result = dict(value)
+    if placement is not None:
+        result['placement'] = dict(placement)
+    return result
 
 
 def clean_event(value):
@@ -448,7 +460,20 @@ class GameInteractions:
             part = target.is_part is True
             definition = _number((target.part_owner if part else target).definition.id)
             if definition is not None:
-                return {'kind': 'object', 'definitionId': definition, 'part': part}
+                result = {'kind': 'object', 'definitionId': definition, 'part': part}
+                try:
+                    position = target.position
+                    coordinates = [getattr(position, k) for k in ('x', 'y', 'z')]
+                    if all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+                           for v in coordinates):
+                        placement = dict(zip(('x', 'y', 'z'), (int(round(v * 1000)) for v in coordinates)))
+                        placement['level'] = target.routing_surface.secondary_id
+                        candidate = dict(result, placement=placement)
+                        if clean_target(candidate) is not None:
+                            result = candidate
+                except Exception:
+                    pass  # Ancien objet sans position exploitable : contrat historique conservé.
+                return result
             return {'kind': 'unknown'}
         except Exception:
             return {'kind': 'unknown'}

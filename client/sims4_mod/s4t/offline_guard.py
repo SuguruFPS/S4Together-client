@@ -121,10 +121,17 @@ def veto(is_blocked, original, failure):
     def run(self, *args, **kwargs):
         try:
             sender = self.get_sender_sim_info()
+            # L'identite deja connue reste protegee meme si le foyer natif est
+            # temporairement illisible pendant un voyage/rechargement de zone.
+            blocked = False
+            try:
+                blocked = sender is not None and is_blocked(getattr(sender, 'sim_id', None))
+            except Exception as error:
+                log('offline_guard', 'veto_identity:' + type(error).__name__)
             # Lecture de l'identité proxy dès le premier événement, avant le premier tick et après voyage.
-            household = getattr(sender, 'household', None)
-            proxy = parse_description(getattr(household, 'description', None)) is not None
-            blocked = sender is not None and (proxy or is_blocked(sender.sim_id))
+            if not blocked:
+                household = getattr(sender, 'household', None)
+                blocked = parse_description(getattr(household, 'description', None)) is not None
         except Exception as error:
             log('offline_guard', 'veto:' + type(error).__name__)
             blocked = False

@@ -18,6 +18,7 @@ REFRESH_LOCAL_TICKS = 2
 REFRESH_TICKS = 30
 RETRY_TICKS = 5
 MAX_APPLY_ATTEMPTS = 3
+APPLY_RECOVERY_TICKS = 60
 FLIGHT_TICKS = 30
 MAX_STALE = 3
 MAX_REMOTE = 16
@@ -407,11 +408,11 @@ class TerrainSync:
         entry = self.remote.get(lot_id)
         if entry is None or lot_id == own or entry['applied'] or entry['blocked'] not in (None, 'ownership', 'local_read', 'apply_failed'):
             return
-        # L'échec natif n'est pas définitif : trois essais espacés par révision,
-        # toujours avec une nouvelle lecture et les mêmes contrôles de propriété.
-        if (entry.get('attempts', 0) >= MAX_APPLY_ATTEMPTS
-                or self.ticks < entry.get('retryAt', 0)):
+        # Après trois échecs, attendre avant une nouvelle série avec relecture et ACL.
+        if self.ticks < entry.get('retryAt', 0):
             return
+        if entry.get('attempts', 0) >= MAX_APPLY_ATTEMPTS:
+            entry['attempts'] = 0
         expected = allowed.get(lot_id) if isinstance(allowed, dict) else None
         if expected is None or local.get('ownerHouseholdId') not in expected:
             # Foyer propriétaire local inattendu : aucun setter natif sur le terrain d'un tiers.
@@ -437,7 +438,8 @@ class TerrainSync:
         entry['applied'] = done is True
         if not entry['applied']:
             entry['blocked'] = 'apply_failed'
-            entry['retryAt'] = self.ticks + RETRY_TICKS
+            entry['retryAt'] = self.ticks + (APPLY_RECOVERY_TICKS
+                if entry.get('attempts', 0) >= MAX_APPLY_ATTEMPTS else RETRY_TICKS)
 
     def status(self):
         """Diagnostic sans contenu de terrain."""

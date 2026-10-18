@@ -1,4 +1,14 @@
-S4Together 0.1.53-game-test — mod de test, launcher 0.1.53 (serveur recommandé 0.1.36). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.54-game-test — mod de test, launcher 0.1.54 (serveur recommandé 0.1.37). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.54 — reprise et actions
+Reprise automatique des meubles et trajets après échec temporaire. Une application partielle
+n'est plus déclarée complète. Garde de chargement et libération des résidences avant voyage.
+Ciblage du meuble ou de la place exacte pour l'assise ; rejeu TV limité à la classe native reconnue.
+Protection des copies de joueurs même si leurs métadonnées sont temporairement illisibles.
+Le serveur37 prépare la reprise après incident stockage et conserve tous les UUID de requêtes.
+Reste ouvert : heure/météo/vitesse, sport/conversations complets, chiens et architecture complète.
+Fermer les jeux avant mise à jour, puis actualiser les deux clients/mods et visiter normalement.
+Aucune commande nécessaire. Les tests automatiques ne prouvent pas le résultat dans Les Sims4.
 
 NOUVEAUTES 0.1.53 — meubles et déplacements
 Les meubles peuvent être transmis même si la lecture native des contours des pièces échoue.

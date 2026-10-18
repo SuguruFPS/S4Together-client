@@ -29,6 +29,7 @@ GAP_RESYNC_TICKS = 60       # Espacement des resynchronisations pour grand écar
 MIN_LEVEL, MAX_LEVEL = -8, 16
 ROUTE_RETRY_TICKS = 5
 MAX_ROUTE_TRIES = 3         # Trajet refusé ou bloqué : arrêt, jamais de téléportation de secours.
+ROUTE_RECOVERY_TICKS = 60   # Reprendre après une obstruction temporaire sans rafale native.
 SPAWN_RETRY_TICKS = 30
 MAX_ATTEMPTS = 3
 GRACE_TICKS = 5             # Lien perdu : délai avant de retirer les instances.
@@ -112,10 +113,13 @@ def decide(current, pose, move):
     if last is None or math.hypot(target[0] - last[0], target[1] - last[1]) > REPLAN_DISTANCE:
         move.update(target=target, tries=1, wait=ROUTE_RETRY_TICKS, stuck=False)
         return 'route'
+    if move['stuck'] and move['wait'] == 0:
+        move.update(tries=0, stuck=False)
     if (current.get('moving') and move['idle'] < ROUTE_RETRY_TICKS) or move['stuck'] or move['wait'] > 0:
         return 'none'
     if move['tries'] >= MAX_ROUTE_TRIES:
         move['stuck'] = True
+        move['wait'] = ROUTE_RECOVERY_TICKS
         return 'none'
     move['tries'] += 1
     move['wait'] = ROUTE_RETRY_TICKS

@@ -433,6 +433,15 @@ class AutoLink:
 
     def on_zone_teardown(self):
         """Zone déchargée (voyage, menu principal) : dernier état puis game.leave tant que le réseau répond encore."""
+        # Le hook EA de déchargement peut réconcilier les domiciles natifs. Les réservations de la
+        # zone quittée ne doivent pas lui opposer les ACL d'une partie encore considérée chargée.
+        # Le prochain tick chargé et lié les réinstalle depuis les résidences serveur validées.
+        try:
+            clear = getattr(self.remote_households, 'clear_reservations', None)
+            if clear is not None:
+                clear()
+        except Exception as error:
+            log('residence_teardown', type(error).__name__)
         try:
             self._flush(False)
         except Exception as error:

@@ -126,6 +126,16 @@ class InteractionPublisher:
             self.dropped += len(events)
             return None
         for event in events:
+            cleaned = clean_event(event)
+            if cleaned is None:
+                self.invalid += 1
+                continue
+            event = cleaned
+            snapshot = getattr(manager, 'snapshot', None)
+            caps = snapshot if isinstance(snapshot, dict) else {}
+            if (isinstance(event, dict) and isinstance(event.get('target'), dict)
+                    and 'placement' in event['target'] and caps.get('interactionTargetPlacement') != 1):
+                event = dict(event, target={k: v for k, v in event['target'].items() if k != 'placement'})
             self._offer(event)
         if self.flight is None:
             if not self.queue:

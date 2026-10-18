@@ -58,7 +58,7 @@ def reduce_plan(plan):
 
 
 class TerrainApplier:
-    """apply(zone_id, plan) -> True si le terrain local a été rapproché du plan, False si rien n'a été tenté."""
+    """apply(zone_id, plan) -> True uniquement pour un plan entièrement appliqué."""
 
     def __init__(self, services, row_of, create, place, thread_id=None, place_parent=None):
         self.services = services
@@ -72,7 +72,7 @@ class TerrainApplier:
     def _target(self, zone_id):
         """Foyer propriétaire du terrain chargé si l'écriture y est permise, sinon None."""
         zone = self.services.current_zone()
-        if zone is None or str(zone.id) != zone_id:
+        if zone is None or str(zone.id) != zone_id or getattr(zone, 'is_zone_running', True) is not True:
             return None
         building = zone.is_in_build_buy
         if callable(building):
@@ -83,6 +83,7 @@ class TerrainApplier:
         return owner
 
     def apply(self, zone_id, plan):
+        """True seulement si le plan entier converge ; une application partielle reste à reprendre."""
         if threading.get_ident() != self.thread_id:
             raise RuntimeError('Écriture du jeu interdite hors thread principal')
         owner = self._target(zone_id)
@@ -116,7 +117,7 @@ class TerrainApplier:
         removed = self._destroy(targets)
         self.last = {'created': len(made), 'removed': removed, 'skipped': skipped}
         log('terrain_apply', 'created:%d removed:%d skipped:%d missing:%d' % (len(made), removed, skipped, missing))
-        return True
+        return skipped == 0 and removed == len(plan['remove'])
 
     def _targets(self, rows):
         if not rows:

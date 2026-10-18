@@ -1,4 +1,4 @@
-"""Rejeu borné de l'assise observée, sur le seul proxy prouvé du joueur émetteur.
+"""Rejeu borné d'assise/TV observée, sur le seul proxy prouvé du joueur émetteur.
 
 Entrée exclusivement issue d'InteractionPublisher (session/zone/flux serveur validés).
 Aucune interaction sociale, invitation, téléportation ou action sur un Sim jouable.
@@ -33,13 +33,16 @@ class RemoteActions:
         return (player, record['household'], instance, pose) if instance is not None and pose is not None else None
 
     def _stop(self, player):
-        item = self.active.pop(player, None)
+        item = self.active.get(player)
         if item is not None:
             try:
                 self.adapter.stop(item['actor'], item['handle'])
                 self.ended += 1
             except Exception as error:
                 log('remote_actions', 'stop:' + type(error).__name__)
+                return False  # Ne jamais superposer une autre action à un handle dont la fin est incertaine.
+            self.active.pop(player, None)
+        return True
 
     def tick(self, observations):
         for player, item in list(self.active.items()):
@@ -51,19 +54,23 @@ class RemoteActions:
             key = (observation['playerId'], observation['streamId'], event['streamId'], event['interactionId'])
             if observation['revision'] <= self.seen.get(key, 0):
                 continue
+            player = observation['playerId']
+            actor = self._actor(observation)
+            if actor is None and event['state'] not in ENDING:
+                # L'apparence ou le mobilier peut arriver après l'événement. La même observation reste
+                # réessayable tant que son flux est confirmé ; une fin plus récente la condamne ci-dessous.
+                self.refused += 1
+                continue
             self.seen[key] = observation['revision']
             self.seen.move_to_end(key)
             while len(self.seen) > 128:
                 self.seen.popitem(last=False)
-            player = observation['playerId']
-            actor = self._actor(observation)
-            if actor is None:
-                self.refused += 1
-                continue
             if event['state'] in ENDING:
                 self.pending.pop(key, None)
                 if self.active.get(player, {}).get('key') == key:
                     self._stop(player)
+                continue
+            if actor is None:
                 continue
             if (event['state'] != 'running' or event['origin'] != 'user' or event['visible'] is not True
                     or event['target']['kind'] != 'object'):
@@ -82,7 +89,8 @@ class RemoteActions:
             if actor is None:
                 del self.pending[key]
                 continue
-            self._stop(actor[0])
+            if not self._stop(actor[0]):
+                break
             try:
                 handle = self.adapter.start(actor, observation['event'])
             except Exception as error:
@@ -107,7 +115,7 @@ class RemoteActions:
 
     def status(self):
         return {'started': self.started, 'ended': self.ended, 'refused': self.refused,
-                'active': len(self.active), 'pending': len(self.pending), 'scope': 'seated_object_only',
+                'active': len(self.active), 'pending': len(self.pending), 'scope': 'seated_and_tv_object_only',
                 'gameReadiness': 'NOT_TESTED_GAME'}
 
 
@@ -123,13 +131,24 @@ class GameActions:
         from interactions.priority import Priority
         player, household, instance, pose = actor
         sim = self.motion._exact(player, household, instance)
-        # Le tuning reçu n'est jamais exécuté librement : uniquement une posture assise.
+        # Le tuning reçu n'est jamais exécuté librement : posture assise ou classe TV native.
         affordance = services.get_instance_manager(sims4.resources.Types.INTERACTION).get(int(event['affordanceId']))
-        posture = affordance.provided_posture_type if affordance is not None else None
-        if posture is None or getattr(posture, 'name', None) != 'sit':
+        posture = getattr(affordance, 'provided_posture_type', None)
+        seated = posture is not None and getattr(posture, 'name', None) == 'sit'
+        television = False
+        if not seated and isinstance(affordance, type):
+            try:
+                from objects.electronics.television import WatchSuperInteraction
+                television = issubclass(affordance, WatchSuperInteraction)
+            except ImportError:
+                pass
+        target_info = event['target']
+        placement = target_info.get('placement')
+        if (not seated and not television) or (television and placement is None):
+            return None
+        if placement is not None and not self._valid_placement(placement):
             return None
         context = InteractionContext(sim, InteractionContext.SOURCE_SCRIPT_WITH_USER_INTENT, Priority.High)
-        target_info = event['target']
         candidates, count = [], 0
         for obj in services.object_manager().valid_objects():
             count += 1
@@ -142,17 +161,27 @@ class GameActions:
             if len(targets) > 64:
                 return None
             for target in targets:
-                if target.routing_surface.secondary_id != pose.get('level'):
+                level = placement['level'] if placement is not None else pose.get('level')
+                if target.routing_surface.secondary_id != level:
                     continue
                 pos = target.position
-                distance = math.hypot(pos.x - pose['position']['x'], pos.z - pose['position']['z'])
-                if distance <= 1.5 and abs(pos.y - pose['position']['y']) <= 1.5:
+                origin = {name: placement[name] / 1000. for name in ('x', 'y', 'z')} if placement is not None else pose['position']
+                distance = math.hypot(pos.x - origin['x'], pos.z - origin['z'])
+                tolerance = .02 if placement is not None else 1.5
+                if distance <= tolerance and abs(pos.y - origin['y']) <= tolerance:
                     candidates.append((distance, target))
         candidates.sort(key=lambda item: item[0])
-        if not candidates or len(candidates) > 1 and candidates[1][0] - candidates[0][0] < .25:
+        if not candidates or len(candidates) > 1 and (placement is not None or candidates[1][0] - candidates[0][0] < .25):
             return None  # Siège absent ou ambigu : aucun choix arbitraire.
         result = sim.push_super_affordance(affordance, candidates[0][1], context)
         return getattr(result, 'interaction', None) if result else None
+
+    @staticmethod
+    def _valid_placement(value):
+        return (isinstance(value, dict) and set(value) == {'x', 'y', 'z', 'level'}
+                and all(type(value[name]) is int and -1000000000 <= value[name] <= 1000000000
+                        for name in ('x', 'y', 'z'))
+                and type(value['level']) is int and -8 <= value['level'] <= 16)
 
     def stop(self, actor, interaction):
         from interactions.interaction_finisher import FinishingType
