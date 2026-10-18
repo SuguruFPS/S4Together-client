@@ -25,7 +25,7 @@ public static class ServerModSync
 {
     public const string FolderName = "S4Together-Serveur";
     public const string StateFileName = ".s4t-server-mods.json";
-    public const long MaxFileBytes = 16L * 1024 * 1024;
+    public const long MaxFileBytes = 256L * 1024 * 1024;
     public const long MaxTotalBytes = 256L * 1024 * 1024;
     public const int MaxMods = 64;
     const int MaxManifestBytes = 1024 * 1024;
@@ -283,13 +283,31 @@ public static class ServerModSync
         {
             using var response = await client.GetAsync(baseUri + "/mods/files/" + mod.Sha256, HttpCompletionOption.ResponseHeadersRead, cancel);
             if (!response.IsSuccessStatusCode) throw new ServerModSyncException($"Mod « {mod.FileName} » indisponible sur le serveur (HTTP {(int)response.StatusCode}).");
-            var bytes = await ReadBoundedAsync(response, mod.Size, cancel);
-            if (bytes.Length != mod.Size || Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant() != mod.Sha256)
+            if (response.Content.Headers.ContentLength is { } length && length != mod.Size)
+                throw new ServerModSyncException("Taille du mod annoncee differente du manifeste signe.");
+            await using var source = await response.Content.ReadAsStreamAsync(cancel);
+            await using var output = new FileStream(part, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true);
+            using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            using var idle = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+            var chunk = new byte[81920];
+            long received = 0;
+            while (true)
+            {
+                idle.CancelAfter(TimeSpan.FromMinutes(2));
+                var read = await source.ReadAsync(chunk, idle.Token);
+                idle.CancelAfter(Timeout.InfiniteTimeSpan);
+                if (read == 0) break;
+                received += read;
+                if (received > mod.Size) throw new ServerModSyncException("Reponse du serveur trop grande : refusee.");
+                digest.AppendData(chunk, 0, read);
+                await output.WriteAsync(chunk.AsMemory(0, read), cancel);
+            }
+            if (received != mod.Size || Convert.ToHexString(digest.GetHashAndReset()).ToLowerInvariant() != mod.Sha256)
                 throw new ServerModSyncException($"Mod « {mod.FileName} » reçu abîmé : rien n'a été installé pour ce fichier. Réessaie.");
-            await File.WriteAllBytesAsync(part, bytes, cancel);
+            await output.FlushAsync(cancel);
         }
         catch (HttpRequestException) { throw new ServerModSyncException($"Téléchargement du mod « {mod.FileName} » interrompu. Réessaie."); }
-        catch (TaskCanceledException) when (!cancel.IsCancellationRequested) { throw new ServerModSyncException($"Téléchargement du mod « {mod.FileName} » trop long. Réessaie."); }
+        catch (OperationCanceledException) when (!cancel.IsCancellationRequested) { throw new ServerModSyncException($"Téléchargement du mod « {mod.FileName} » sans progression depuis deux minutes. Réessaie."); }
     }
 
     static async Task<byte[]> ReadBoundedAsync(HttpResponseMessage response, long max, CancellationToken cancel)

@@ -1,4 +1,7 @@
-S4Together 0.1.56-game-test — mod de test, launcher 0.1.56 (serveur recommandé 0.1.39). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.57-game-test — mod de test, launcher 0.1.57 (serveur recommandé 0.1.40). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.57 — mods serveur volumineux
+Les fichiers .package jusqu'a 256 Mio et les archives .ts4script jusqu'a 4096 entrees peuvent etre distribues (plafond total 256 Mio conserve). Installation uniquement jeu ferme, dans Mods/S4Together-Serveur. Les gros fichiers sont ecrits progressivement et verifies par SHA256, sans charger leur contenu entier en memoire. Le jeu doit ensuite etre relance pour charger les mods.
 
 NOUVEAUTES 0.1.56 — retour dans son foyer et résidences enregistrées
 Le mod attend la simulation réellement active et arrête les callbacks au déchargement.
