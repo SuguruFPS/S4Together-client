@@ -98,13 +98,20 @@ class RemoteHouseholds:
         self.adapter = adapter if adapter is not None else GameHouseholds()
         self.attempts = {}
         self.failed_actions = {}
+        self.failure_reasons = {}
         self.blocked_homes = {}
         self.cooldown = 0
         self.last = None
         self.ghosts = {}
 
     def reset(self):
-        # Nouvelle zone : foyers relus ; les échecs déjà comptés restent (pas de boucle de création ratée).
+        # Nouvelle zone : réessayer les déménagements avec une nouvelle lecture native.
+        # Les créations/apparences ratées gardent leur budget pour éviter les doublons.
+        for player_id, action in tuple(self.failed_actions.items()):
+            if action[0] == 'move':
+                self.attempts.pop(player_id, None)
+                self.failed_actions.pop(player_id, None)
+                self.failure_reasons.pop(player_id, None)
         self.cooldown = 0
         self.ghosts = {}
         self.blocked_homes = {}
@@ -164,11 +171,18 @@ class RemoteHouseholds:
             getattr(self.adapter, kind)(player_id, **args)
             self.attempts.pop(player_id, None)
             self.failed_actions.pop(player_id, None)
+            self.failure_reasons.pop(player_id, None)
             log('remote_household', kind + ':ok')
             self.last = kind
         except Exception as error:
             self.attempts[player_id] = self.attempts.get(player_id, 0) + 1
             self.failed_actions[player_id] = key
+            known = {'occupied', 'zone', 'local_household', 'pending',
+                     'residence_save_identity', 'residence_already_backed_up',
+                     'residence_move_unconfirmed', 'residence_release_unconfirmed',
+                     'residence_rollback_unconfirmed'}
+            reason = str(error)
+            self.failure_reasons[player_id] = reason if reason in known else type(error).__name__
             self.cooldown = RETRY_TICKS
             log('remote_household', kind + ':' + type(error).__name__)
             self.last = kind + ':' + type(error).__name__
@@ -178,6 +192,7 @@ class RemoteHouseholds:
         return {'ghosts': {pid: {'zoneId': g.get('zoneId'), 'instanced': g.get('instanced')} for pid, g in self.ghosts.items()},
                 'failed': sorted(pid for pid, n in self.attempts.items() if n >= MAX_ATTEMPTS),
                 'blockedHomes': dict(self.blocked_homes),
+                'failureReasons': dict(self.failure_reasons),
                 'last': self.last, 'gameReadiness': 'NOT_TESTED_GAME'}
 
 
@@ -367,7 +382,8 @@ class GameHouseholds:
                 if household.home_zone_id != int(zoneId):
                     raise RuntimeError('residence_move_unconfirmed')
                 household.save_data()
-            return journal.displace(npc, int(zoneId), player_id, household.id, install, occupant)
+            return journal.displace(npc, int(zoneId), player_id, household.id, install, occupant,
+                                    active_id=services.active_household_id())
         check_move(household.id, services.active_household_id(), zone)
         household.move_into_zone(int(zoneId))
         if household.home_zone_id != int(zoneId):

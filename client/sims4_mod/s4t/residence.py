@@ -11,21 +11,56 @@ from pathlib import Path
 from .journal import log
 
 
+def _unplayed_npc(household, active_id):
+    """Sims d'un foyer PNJ jamais joué, non actif, non S4T et sans Sim sélectionnable ; None sinon."""
+    if (household is None or household.id == active_id
+            or household.is_player_household is not False or household.is_played_household is not False):
+        return None
+    if type(household.description) is not str or type(household.name) is not str:
+        return None
+    if household.description.strip().upper().startswith('S4T:') or '(S4T)' in household.name.upper():
+        return None
+    infos = tuple(household.sim_info_gen())
+    if not 0 < len(infos) <= 8 or any(info.is_selectable is not False for info in infos):
+        return None
+    return infos
+
+
 def replaceable(household, active_id, zone_id):
     """Un PNJ non joué, non sélectionnable et non instancié, dont le domicile est certain."""
     try:
-        if (household is None or household.id == active_id or household.home_zone_id != zone_id
-                or household.is_player_household is not False or household.is_played_household is not False):
+        if household is None or household.home_zone_id != zone_id:
             return False
-        if type(household.description) is not str or type(household.name) is not str:
-            return False
-        if household.description.strip().upper().startswith('S4T:') or '(S4T)' in household.name.upper():
-            return False
-        infos = tuple(household.sim_info_gen())
-        return (0 < len(infos) <= 8 and all(info.is_selectable is False
-                and info.is_instanced(allow_hidden_flags=0xFFFFFFFF) is False for info in infos))
+        infos = _unplayed_npc(household, active_id)
+        return infos is not None and all(info.is_instanced(allow_hidden_flags=0xFFFFFFFF) is False
+                                         for info in infos)
     except Exception:
         return False
+
+
+def _restorable(household, active_id):
+    """Rollback permis seulement vers un PNJ encore non joué ; l'instanciation n'empêche pas de lui rendre sa maison."""
+    try:
+        return _unplayed_npc(household, active_id) is not None
+    except Exception:
+        return False
+
+
+def _active_household_id():
+    try:
+        import services
+        return services.active_household_id()
+    except Exception:
+        return None
+
+
+def _native_set_home(household, zone_id):
+    """Méthode native d'origine, sans ResidenceGuard ; jamais d'écriture directe dans le proto de zone."""
+    method = household.set_household_lot_ownership
+    original = getattr(method, 's4t_original', None)
+    if original is None:
+        return method(zone_id=zone_id)
+    return original(household, zone_id=zone_id)
 
 
 class ResidenceJournal:
@@ -73,7 +108,7 @@ class ResidenceJournal:
             if temp.exists():
                 temp.unlink()
 
-    def displace(self, household, zone_id, player_id, proxy_id, install, occupant=None):
+    def displace(self, household, zone_id, player_id, proxy_id, install, occupant=None, active_id=None):
         previous = self.records()
         if any(r['npcHouseholdId'] == household.id for r in previous):
             raise RuntimeError('residence_already_backed_up')
@@ -82,14 +117,44 @@ class ResidenceJournal:
         try:
             household.set_household_lot_ownership(zone_id=0)
             household.save_data()
+            # Libération relue avant toute installation : un terrain encore attribué au PNJ n'est jamais pris.
+            if household.home_zone_id != 0 or (occupant is not None and occupant(zone_id) != 0):
+                raise RuntimeError('residence_release_unconfirmed')
             return install()
         except Exception:
-            # Si la copie a déjà pris la maison, ne pas la remplacer en tentant un rollback aveugle.
-            if household.home_zone_id == 0 and (occupant is None or occupant(zone_id) == 0):
-                household.set_household_lot_ownership(zone_id=zone_id)
-                household.save_data()
-                self._write(previous)
+            self._rollback(household, zone_id, previous, occupant,
+                           _active_household_id() if active_id is None else active_id)
             raise
+
+    def _rollback(self, household, zone_id, previous, occupant, active_id):
+        """Rend son terrain au PNJ journalisé ; le journal ne tombe que si domicile et occupant le confirment.
+
+        Sans lecture d'occupant (appel pur), seul home_zone_id confirme. Toute erreur garde le journal.
+        """
+        try:
+            if occupant is not None and active_id is None:
+                log('residence_rollback', 'active_household_unknown')
+                return
+            if occupant is not None and occupant(zone_id) not in (0, household.id):
+                # La copie ou un autre foyer occupe déjà le terrain : jamais écrasé.
+                log('residence_rollback', 'occupied')
+                return
+            if household.home_zone_id not in (0, zone_id):
+                log('residence_rollback', 'moved')
+                return
+            if not _restorable(household, active_id):
+                log('residence_rollback', 'protected')
+                return
+            if household.home_zone_id != zone_id:
+                # La garde bloque tout PNJ sur une résidence réservée ; seul ce retour journalisé la contourne.
+                _native_set_home(household, zone_id)
+                household.save_data()
+            if household.home_zone_id == zone_id and (occupant is None or occupant(zone_id) == household.id):
+                self._write(previous)
+            else:
+                log('residence_rollback', 'unconfirmed')
+        except Exception as error:
+            log('residence_rollback', type(error).__name__)
 
     def restore(self, reserved, lookup, occupant, active_id):
         records = self.records()

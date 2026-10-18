@@ -1,4 +1,7 @@
-S4Together 0.1.57-game-test — mod de test, launcher 0.1.57 (serveur recommandé 0.1.40). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.58-game-test — mod de test, launcher 0.1.58 (serveur recommandé 0.1.40). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.58 — reprise des residences apres echec
+La restauration d'un ancien foyer PNJ apres echec d'emmenagement n'est plus bloquee par notre propre garde ; le journal est conserve tant que la restauration n'est pas confirmee. Les demenagements echoues peuvent etre retentes au prochain chargement de zone, sans reautoriser les creations ratees. Cela ne force jamais le deplacement d'un joueur ou d'un foyer joue. Le rendu chez les deux joueurs reste a verifier.
 
 NOUVEAUTES 0.1.57 — mods serveur volumineux
 Les fichiers .package jusqu'a 256 Mio et les archives .ts4script jusqu'a 4096 entrees peuvent etre distribues (plafond total 256 Mio conserve). Installation uniquement jeu ferme, dans Mods/S4Together-Serveur. Les gros fichiers sont ecrits progressivement et verifies par SHA256, sans charger leur contenu entier en memoire. Le jeu doit ensuite etre relance pour charger les mods.

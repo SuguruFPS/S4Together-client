@@ -1,3 +1,5 @@
+Client0.1.58 candidat : reprise des residences et rollback PNJ,  mods serveur jusqu a256Mio et archives4096entrees, telechargement en flux.1453PythonPASS1SKIP,202groupes serveur,66tests residence cibles,12checks paquet et aller-retour HTTP reel isole des fichiers autorises. Serveur0.1.40 installe,2mods publies. Derniere release publique0.1.57 publiee par utilisateur et verifiee. NOT_TESTED_GAME.
+
 Client0.1.57 candidat : mods serveur jusqu a256Mio et archives4096entrees, telechargement en flux.1435PythonPASS1SKIP,202groupes serveur,6groupes launcher,12checks paquet et aller-retour HTTP reel isole des fichiers autorises. Serveur0.1.40 prepare, non deploye avant publication du client57. Derniere release publique0.1.56 publiee par utilisateur et verifiee. NOT_TESTED_GAME.
 
 Candidat client0.1.56 local : protections des transitions Gérer les mondes/reprise et domicile des copies résidentes déjà enregistrées.1435tests Python PASS/1SKIP,12checks paquetPASS. Serveur0.1.39 déployé avec reprise cohérente des propres commits confirmés en base. Aucune nouvelle release : auto-update publique reste0.1.53. Cause exacte erreur102/renduAna nonprouvés : NOT_TESTED_GAME.
