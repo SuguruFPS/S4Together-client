@@ -1,4 +1,7 @@
-S4Together 0.1.62-game-test — mod de test, launcher 0.1.62 (serveur recommandé 0.1.42). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.63-game-test — mod de test, launcher 0.1.63 (serveur recommandé 0.1.42). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.63 — correctif chargement du foyer
+Corrige l'erreur de chargement 102:5d3738c3 a l'ouverture de ton foyer : la protection des maisons transmettait mal le terrain au jeu, qui plantait pendant le chargement.
 
 NOUVEAUTES 0.1.62 — retour sur ton Sim et maison liberee
 Retour automatique sur ton personnage : si un autre Sim est selectionne, le jeu revient sur le tien ; si le foyer charge n'est pas le tien, le jeu bascule une fois vers ton foyer (jamais pendant une sauvegarde).

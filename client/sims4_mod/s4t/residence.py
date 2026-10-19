@@ -242,16 +242,21 @@ class ResidenceGuard:
 
     def wrap(self, original):
         @functools.wraps(original)
-        def wrapped(household, zone_id=0, *args, **kwargs):
+        def wrapped(household, *args, **kwargs):
+            # Appel transmis tel quel : set_household_lot_ownership natif n'accepte zone_id qu'en mot-clé
+            # (TypeError au chargement du foyer, erreur 102:5d3738c3 du 19/10/2026).
+            def call():
+                return original(household, *args, **kwargs)
             # Inactif pendant les transitions : ne même pas lire les propriétés natives.
             if not self.enabled:
-                return original(household, zone_id, *args, **kwargs)
+                return call()
+            zone_id = kwargs['zone_id'] if 'zone_id' in kwargs else (args[0] if args else 0)
             try:
                 active_id = self.active_household_id()
             except Exception:
                 active_id = None
             if active_id is not None and getattr(household, 'id', None) == active_id:
-                return original(household, zone_id, *args, **kwargs)
+                return call()
             from .remote_household import parse_description
             parsed = parse_description(getattr(household, 'description', None))
             if self.enabled:
@@ -266,7 +271,7 @@ class ResidenceGuard:
                     # Maisons réservées aux joueurs : un PNJ non joué reste en ville, sans domicile.
                     log('residence_guard_block', 'npc_home')
                     return None
-            return original(household, zone_id, *args, **kwargs)
+            return call()
         wrapped.s4t_residence_guard = self
         wrapped.s4t_original = original
         return wrapped
