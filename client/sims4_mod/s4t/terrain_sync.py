@@ -201,6 +201,10 @@ class TerrainSync:
         if content.get('skipped') != 0 or (content.get('blocksReadable') is not True and not self.objects_only):
             self.read_error = 'partial_read'
             return None  # Une absence de lecture n'est pas une suppression d'objet ou de pièce.
+        if not content.get('objects') and not content.get('blocks'):
+            # Terrain sans objet ni contour : lot pas encore chargé, jamais une maison vide imposée aux autres.
+            self.read_error = 'empty_read'
+            return None
         try:
             candidate = terrain.build_snapshot(lot_id, content['objects'], content['blocks'])
             if content.get('blocksReadable') is not True:
@@ -419,6 +423,12 @@ class TerrainSync:
             if entry['blocked'] != 'ownership':
                 self._reject('ownership')
             entry['blocked'] = 'ownership'
+            return
+        if not entry['snapshot']['objects'] and not entry['snapshot']['blocks']:
+            # Relevé distant vide (ancien client) : l'appliquer supprimerait tous les objets locaux du terrain.
+            if entry['blocked'] != 'empty_snapshot':
+                self._reject('empty_snapshot')
+            entry['blocked'] = 'empty_snapshot'
             return
         unread = entry['blocked'] == 'local_read'
         entry['blocked'] = None  # Le foyer S4T peut être apparu après la réception du relevé.

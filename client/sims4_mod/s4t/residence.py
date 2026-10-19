@@ -23,7 +23,8 @@ def _unplayed_npc(household, active_id):
         return None
     if type(household.description) is not str or type(household.name) is not str:
         return None
-    if household.description.strip().upper().startswith('S4T:') or '(S4T)' in household.name.upper():
+    # Même reconnaissance que character_sync._is_s4t_copy (préfixe « S4T », suffixe « (S4T) ») : le doute protège.
+    if household.description.strip().upper().startswith('S4T') or '(S4T)' in household.name.upper():
         return None
     infos = tuple(household.sim_info_gen())
     if not 0 < len(infos) <= 8 or any(info.is_selectable is not False for info in infos):
@@ -48,6 +49,19 @@ def replaceable(household, active_id, zone_id, current_zone=None):
         return all(info.is_instanced(allow_hidden_flags=0xFFFFFFFF) is False for info in infos)
     except Exception:
         return False
+
+
+def resident_here(household, active_id, current_zone):
+    """Sims d'un PNJ non joué dont le domicile est le terrain chargé ; None sinon, jamais d'exception.
+
+    Un visiteur (domicile ailleurs), le foyer actif, un foyer joué, sélectionnable ou S4T donnent None.
+    """
+    try:
+        if not current_zone or household is None or household.home_zone_id != current_zone:
+            return None
+        return _unplayed_npc(household, active_id)
+    except Exception:
+        return None
 
 
 def _restorable(household, active_id):

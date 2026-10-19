@@ -23,6 +23,8 @@ SUFFIX = ' (S4T)'
 RETRY_TICKS = 60
 MAX_ATTEMPTS = 3
 MAX_GHOSTS = 16
+# Appels de _clear_npc_home avant de redemander le départ d'un PNJ resté sur le terrain chargé.
+LEAVE_RETRY_CALLS = 12
 # 16 caractères non hexadécimaux : ne peut égaler le début d'aucun SHA-256.
 PENDING = 'pending-not-done'
 
@@ -268,7 +270,11 @@ class GameHouseholds:
         self._restore_error = None
 
     def _clear_npc_home(self, journal):
-        """Libère au plus une maison PNJ non jouée par appel ; jamais le terrain chargé ni un échec déjà vu."""
+        """Libère au plus une maison PNJ non jouée par appel ; jamais un échec déjà vu.
+
+        Terrain chargé d'abord (_clear_current_lot) : les Sims du PNJ qui y habite quittent le terrain, puis sa
+        maison est libérée quand aucun n'est plus instancié. Ensuite seulement les autres terrains.
+        """
         import services
         from .residence import replaceable
         current = getattr(services, 'current_zone_id', lambda: None)()
@@ -277,7 +283,12 @@ class GameHouseholds:
         failed = self.__dict__.setdefault('_evict_failed', set())
         active = services.active_household_id()
         manager = services.household_manager()
-        for zone in tuple(services.get_persistence_service().zone_proto_buffs_gen()):
+        zones = tuple(services.get_persistence_service().zone_proto_buffs_gen())
+        here = next((zone for zone in zones if getattr(zone, 'zone_id', None) == current), None)
+        result = self._clear_current_lot(journal, here, current, active, manager, failed)
+        if result is not None:
+            return result
+        for zone in zones:
             household_id = getattr(zone, 'household_id', 0)
             if (not household_id or household_id == active or household_id in failed
                     or getattr(zone, 'active_plex', 0) or zone.zone_id == current):
@@ -294,6 +305,63 @@ class GameHouseholds:
             log('residence_evict', 'ok')
             return True
         return False
+
+    def _leave_asked(self, current):
+        """Appels depuis le dernier ordre de départ, par sim_id ; remis à zéro au changement de terrain."""
+        if self.__dict__.get('_leave_zone') != current:
+            self._leave_zone, self._leave_sims = current, {}
+        return self._leave_sims
+
+    def _clear_current_lot(self, journal, zone, current, active, manager, failed):
+        """PNJ non joué domicilié sur le terrain chargé : départ de ses Sims, puis libération de sa maison.
+
+        True/False : un foyer traité dans cet appel (succès/échec) ; None : rien à faire ici.
+        API vérifiée dans le bytecode du jeu : SituationManager.make_sim_leave_now_must_run(sim),
+        SimInfo.get_sim_instance(). Maison rachetée (terrain du foyer actif) : départ seulement, car
+        Household.set_household_lot_ownership(0) appelle ZoneManager.clear_lot_ownership sur ce terrain et
+        effacerait la propriété du foyer actif ; le home_zone_id périmé du PNJ n'est donc pas remis à zéro.
+        """
+        if zone is None or getattr(zone, 'active_plex', 0):
+            return None
+        import services
+        from .residence import replaceable, resident_here
+        owner = getattr(zone, 'household_id', 0)
+        asked = self._leave_asked(current)
+        for household in tuple(manager.values()):
+            household_id = getattr(household, 'id', None)
+            if not household_id or household_id == active or household_id in failed:
+                continue
+            infos = resident_here(household, active, current)
+            # Foyer actif inconnu : rien n'est sûr, aucun Sim renvoyé.
+            if infos is None or not active or owner not in (household_id, active):
+                continue
+            try:
+                present = [(info, info.get_sim_instance()) for info in infos]
+                present = [(info, sim) for info, sim in present if sim is not None]
+                due = []
+                for info, sim in present:
+                    calls = asked.get(info.sim_id)
+                    if calls is None or calls >= LEAVE_RETRY_CALLS:
+                        due.append(sim)
+                        asked[info.sim_id] = 0
+                    else:
+                        asked[info.sim_id] = calls + 1
+                if due:
+                    situations = services.get_zone_situation_manager()
+                    for sim in due:
+                        situations.make_sim_leave_now_must_run(sim)
+                    log('residence_evict', 'leave')
+                    return True
+                if present or owner != household_id or not replaceable(household, active, current, current):
+                    continue
+                journal.evict(household, current)
+            except Exception as error:
+                failed.add(household_id)
+                log('residence_evict', type(error).__name__)
+                return False
+            log('residence_evict', 'ok')
+            return True
+        return None
 
     def _household(self, household_id):
         import services

@@ -1,4 +1,9 @@
-S4Together 0.1.61-game-test — mod de test, launcher 0.1.61 (serveur recommandé 0.1.41). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.62-game-test — mod de test, launcher 0.1.62 (serveur recommandé 0.1.42). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.62 — retour sur ton Sim et maison liberee
+Retour automatique sur ton personnage : si un autre Sim est selectionne, le jeu revient sur le tien ; si le foyer charge n'est pas le tien, le jeu bascule une fois vers ton foyer (jamais pendant une sauvegarde).
+Un PNJ present sur le terrain ou tu te trouves est maintenant renvoye tout de suite, puis la maison est liberee quand il est parti (une maison achetee n'est jamais retiree).
+Protection des maisons : un releve de terrain vide n'est plus envoye ni applique, il ne peut plus effacer une maison.
 
 NOUVEAUTES 0.1.61 — maisons des joueurs et personnage protege
 Dans une partie liee au serveur, seules les maisons des joueurs restent habitees : a chaque passage, une maison occupee par un foyer PNJ non joue est liberee (jamais le terrain ou tu te trouves, jamais un foyer joue). Ces PNJ restent en ville et se promenent, sans domicile ; ils ne reviennent plus dans une maison. L'ancien proprietaire PNJ d'une maison rachetee ne doit donc plus apparaitre chez toi.

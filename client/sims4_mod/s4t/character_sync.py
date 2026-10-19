@@ -23,6 +23,7 @@ import uuid
 from . import solo_guard
 from .journal import log
 from .notify import game_notify
+from .own_sim import OwnSimGuard
 from .remote_household import PREFIX, SUFFIX
 
 CHECKPOINT_TICKS = 15
@@ -45,6 +46,17 @@ _SOLO_BINDING = ("L'ancienne liaison de {} pointe vers une partie solo : elle es
 _FOREIGN = ("Le foyer chargé est la copie d'un autre joueur : on ne peut pas jouer son personnage. "
             "Rien n'est lié ni envoyé. Charge ton propre foyer (le tien dans cette sauvegarde) pour jouer {}.")
 _MISMATCH = "Ce foyer n'est pas celui de {}. Charge son foyer ou choisis un autre personnage."
+_SWITCH = "Bascule vers ton foyer : le jeu charge le foyer de {}. Le foyer actuel n'est ni lié ni synchronisé."
+# Raison lisible quand la bascule automatique vers le foyer du personnage est impossible.
+_SWITCH_REASONS = {
+    'household_missing': 'son foyer est introuvable dans cette sauvegarde',
+    'household_copy': 'le foyer lié est lui-même une copie S4T',
+    'no_home': "son foyer n'a pas de maison",
+    'sim_missing': "aucun de ses Sims n'est sur un terrain de cette sauvegarde",
+    'zone_missing': 'le terrain de son foyer est introuvable',
+    'save_locked': 'le jeu est en cours de sauvegarde',
+    'no_binding': 'la liaison serveur est incomplète',
+}
 _SOLO_GUARD = ("Protection des parties solo illisible ou prévue pour un autre personnage : rien n'est modifié. "
                "Relance le jeu depuis le launcher.")
 
@@ -203,8 +215,10 @@ class CharacterSync:
 
     def __init__(self, store, household=game_household, set_funds=game_set_funds,
                  reset_relations=game_reset_npc_relations, new_id=lambda: str(uuid.uuid4()), notify=game_notify,
-                 clock=time.monotonic):
+                 clock=time.monotonic, own_sim=None):
         self.store = store
+        # Retour sur son Sim et sur son foyer (s4t.own_sim) ; jamais sur la copie S4T d'un autre joueur.
+        self.own_sim = own_sim if own_sim is not None else OwnSimGuard()
         self.household = household
         self.set_funds = set_funds
         self.reset_relations = reset_relations
@@ -237,6 +251,26 @@ class CharacterSync:
         self.solo_cause = None
         # Sauvegarde du jeu réussie pendant qu'une requête était en vol : checkpoint au tick suivant.
         self.pending_save = False
+        self._own('reset')
+
+    def _own(self, action, *args):
+        """Appel à la garde du Sim du joueur ; une erreur n'interrompt jamais la synchro."""
+        try:
+            return getattr(self.own_sim, action)(*args)
+        except Exception as error:
+            log('own_sim', action + ':' + type(error).__name__)
+            return None
+
+    def _switch_text(self, character, refusal):
+        """Bascule vers le foyer du personnage lié ; sinon le refus, avec la raison si la bascule a échoué."""
+        if character.get('status') != 'bound':
+            return refusal
+        result = self._own('switch_household', character)
+        if result == 'requested':
+            return _SWITCH.format(character.get('name'))
+        if result in (None, 'already_requested'):
+            return refusal
+        return refusal + ' Bascule automatique impossible : {}.'.format(_SWITCH_REASONS.get(result, 'erreur du jeu'))
 
     def tick(self, manager, authenticated, loaded):
         if not authenticated:
@@ -274,6 +308,7 @@ class CharacterSync:
                 return None
             if observed is not None and observed['householdId'] == self.character['binding']['gameHouseholdId']:
                 self.last_seen = observed['funds']
+                self._own('on_tick', self.character)
                 if self.clock() - getattr(self, '_save_context_at', -1000) >= 15:
                     from .save_context import publish
                     try:
@@ -417,7 +452,8 @@ class CharacterSync:
             # Personnage d'un autre joueur : jamais lié, jamais synchronisé. Le sien reste autorisé.
             self.state = 'foreign_copy'
             log('character', 'foreign_copy')
-            self._inform('foreign/' + character['characterId'], _FOREIGN.format(character.get('name')))
+            self._inform('foreign/' + character['characterId'],
+                         self._switch_text(character, _FOREIGN.format(character.get('name'))))
             return
         if character['status'] == 'pending_game':
             body = {'characterId': character['characterId'], 'gameHouseholdId': observed['householdId'],
@@ -433,7 +469,7 @@ class CharacterSync:
             log('character', 'household_mismatch')
             # Une fois par foyer chargé : la reprise suivante (voyage) ne répète pas l'avertissement.
             self._inform('mismatch/' + character['characterId'] + '/' + str(observed['householdId']),
-                         _MISMATCH.format(character.get('name')))
+                         self._switch_text(character, _MISMATCH.format(character.get('name'))))
             return
         pending = self._pending_bind(character['characterId'])
         if pending is not None and pending['body'].get('gameHouseholdId') != observed['householdId']:
@@ -468,6 +504,7 @@ class CharacterSync:
                 return
         self.recovery_required = False
         self.state = 'bound'
+        self._own('on_bound', character)
         if restored is not None:
             # Le jeu a été modifié : toujours signalé.
             self.notify(TITLE, 'Bon retour, {} ! Argent restauré : {} §.'.format(character.get('name'), restored))
@@ -567,6 +604,7 @@ class CharacterSync:
             self.store.mark_character(key + '/bind', 'done')
         self.state = 'bound'
         log('character', 'bound')
+        self._own('on_bound', character)
         self.notify(TITLE, '{} est relié à ce foyer et sauvegardé sur le serveur.'.format(character.get('name')))
 
     def _checkpoint(self, manager, observed, force=False):
