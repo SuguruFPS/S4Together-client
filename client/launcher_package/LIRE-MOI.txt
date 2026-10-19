@@ -1,4 +1,9 @@
-S4Together 0.1.67-game-test — mod de test, launcher 0.1.67 (serveur recommandé 0.1.43). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.68-game-test — mod de test, launcher 0.1.68 (serveur recommandé 0.1.45). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.68 — constructions des autres joueurs
+Le launcher envoie au serveur les murs, sols et toits de ta maison, lus dans une copie de ta sauvegarde multijoueur (jamais l'original).
+Avant chaque lancement (jeu fermé), il récupère les maisons des autres joueurs et les écrit dans ta sauvegarde multijoueur, après une copie de sécurité dans %LOCALAPPDATA%\S4Together\launcher\architecture-backups.
+Si quelque chose échoue, le jeu se lance quand même et ta sauvegarde reste intacte.
 
 NOUVEAUTES 0.1.67 — moins de latence, nouveau design
 Connexion au serveur plus réactive : messages envoyés sans attente réseau (TCP_NODELAY) et lus plus souvent par le mod.

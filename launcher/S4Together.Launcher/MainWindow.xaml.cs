@@ -1270,6 +1270,13 @@ public partial class MainWindow : Window
             BeginJoinWatch(current, roster!.Selected!.Id);
             return;
         }
+        // Jeu fermé : appliquer les constructions des autres joueurs à la sauvegarde multijoueur (copie de sécurité d'abord).
+        if (selectedCharacter.Bound && saved is not null && !GameLocator.IsGameRunning())
+        {
+            Status("Mise à jour des constructions des autres joueurs…");
+            await ApplyRemoteArchitectureAsync(current, selectedCharacter, saved.FilePath);
+            if (!ReferenceEquals(current, link) || roster?.Selected?.Id != selectedCharacter.Id) { Failure("La connexion ou le personnage a changé. Choisis ton personnage puis réessaie."); return; }
+        }
         try { GameLauncher.Launch(game); }
         catch (Exception ex) when (ex is FileNotFoundException or System.ComponentModel.Win32Exception or InvalidOperationException)
         {

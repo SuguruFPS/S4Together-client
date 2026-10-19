@@ -25,6 +25,30 @@ public partial class MainWindow
     string? lastBackupProblem;
     SaveUploadContext? loadedSaveContext;
     readonly PrivateSaveUploader saveUploader=new();
+    readonly ArchitectureSyncClient architectureSync=new();
+    readonly Dictionary<string,string> lastArchitectureSha=new(StringComparer.Ordinal);
+    readonly ArchitectureSaveWriter architectureWriter=new(Path.Combine(LauncherSettings.DefaultFolder,"architecture-backups"));
+
+    /// <summary>
+    /// Jeu fermé : écrit dans la sauvegarde multijoueur l'architecture des domiciles des AUTRES joueurs.
+    /// Copie de sécurité vérifiée d'abord ; un échec n'empêche jamais de lancer le jeu.
+    /// </summary>
+    async Task ApplyRemoteArchitectureAsync(MultiplayerLink current,CharacterInfo character,string savePath)
+    {
+        if(current.Session.Hello is not {} hello)return;
+        try
+        {
+            using var cancel=new CancellationTokenSource(TimeSpan.FromMinutes(1));
+            var lots=await Task.Run(()=>architectureSync.DownloadAsync(current.Address,hello,character,cancel.Token));
+            if(lots is null||lots.Count==0)return;
+            var result=await Task.Run(()=>architectureWriter.Apply(savePath,character,lots));
+            if(result.Status=="applied")Status($"Constructions des autres joueurs mises à jour ({result.Applied.Count} terrain(s)). Copie de sécurité : {result.BackupPath}");
+            else if(result.Status=="unstable")Status("Constructions non appliquées : la sauvegarde a changé pendant l'opération. Nouvel essai au prochain lancement.");
+        }
+        catch(OperationCanceledException){Status("Constructions des autres joueurs : serveur trop lent, lancement sans mise à jour.");}
+        catch(Exception ex)when(ex is System.Net.Http.HttpRequestException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
+        {Status("Constructions des autres joueurs non appliquées ("+ex.GetType().Name+"). Ta sauvegarde reste intacte.");}
+    }
 
     void StartSaveBackups()
     {
@@ -85,6 +109,16 @@ public partial class MainWindow
                     else if(status=="unsupported")StatusBar.Text="Envoi de sauvegarde : mets a jour le serveur pour activer cette fonction.";
                 }
                 finally{activeLink.Closed-=Closed;activeLink.Bridge.ModConnectionChanged-=ModClosed;}
+            }
+            // Architecture du domicile (murs, sols, toits) : extraite de la COPIE, jamais de l'original.
+            if(link is {} archLink&&archLink.Session.Connected&&archLink.Session.Hello is {} hello&&result.BackupPath is {} archCopy&&
+                target.Server.EndsWith("\n"+archLink.Address.WebSocketUri.AbsoluteUri,StringComparison.Ordinal))
+            {
+                using var cancel=new CancellationTokenSource(TimeSpan.FromMinutes(2));
+                lastArchitectureSha.TryGetValue(target.Character.Id,out var previous);
+                var (status,sha)=await Task.Run(()=>architectureSync.UploadHomeAsync(archLink.Address,hello,target.Character,archCopy,previous,cancel.Token));
+                if(sha is not null)lastArchitectureSha[target.Character.Id]=sha;
+                if(ReferenceEquals(archLink,link)&&status=="stored")StatusBar.Text="Construction de ta maison envoyée au serveur : les autres joueurs la recevront au prochain lancement.";
             }
         }
         catch(System.Net.Http.HttpRequestException)
