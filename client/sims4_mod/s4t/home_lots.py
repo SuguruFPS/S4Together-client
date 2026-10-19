@@ -60,8 +60,10 @@ def game_local_lot(lot_description_id):
             if zone.lot_description_id == wanted and not getattr(zone, 'active_plex', 0):
                 from .residence import replaceable
                 occupant = services.household_manager().get(zone.household_id) if zone.household_id else None
+                current = getattr(services, 'current_zone_id', lambda: None)()
                 return {'zoneId': str(zone.zone_id), 'name': str(zone.name or ''), 'occupied': bool(zone.household_id),
-                        'replaceableNpc': replaceable(occupant, services.active_household_id(), zone.zone_id)}
+                        'replaceableNpc': replaceable(occupant, services.active_household_id(), zone.zone_id,
+                                                      current)}
     except Exception as error:
         log('home_lot_resolve', type(error).__name__)
     return None

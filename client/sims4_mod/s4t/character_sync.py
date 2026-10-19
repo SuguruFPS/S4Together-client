@@ -42,6 +42,9 @@ _SOLO_OTHER = ("Le foyer chargé ne correspond pas à la liaison du personnage s
                "Le foyer chargé reste inchangé.")
 _SOLO_BINDING = ("L'ancienne liaison de {} pointe vers une partie solo : elle est incorrecte et rien n'est restauré. "
                  "Recrée ce personnage dans le launcher, puis choisis « Nouvelle partie » dans une sauvegarde distincte.")
+_FOREIGN = ("Le foyer chargé est la copie d'un autre joueur : on ne peut pas jouer son personnage. "
+            "Rien n'est lié ni envoyé. Charge ton propre foyer (le tien dans cette sauvegarde) pour jouer {}.")
+_MISMATCH = "Ce foyer n'est pas celui de {}. Charge son foyer ou choisis un autre personnage."
 _SOLO_GUARD = ("Protection des parties solo illisible ou prévue pour un autre personnage : rien n'est modifié. "
                "Relance le jeu depuis le launcher.")
 
@@ -73,10 +76,23 @@ def game_household():
     observed = {'householdId': household_id, 'simIds': sim_ids[:8], 'funds': household.funds.money,
             'homeLotId': _native(household.home_zone_id), 'gameWorld': _native(world),
             'saveSlotId': _save_slot_id(services)}
+    if _is_s4t_copy(household):
+        observed['s4tCopy'] = True
     pets = [_native(info.sim_id) for info in infos if getattr(info, 'is_pet', None) is True]
     if pets and all(pets):
         observed['petSimIds'] = pets
     return observed
+
+
+def _is_s4t_copy(household):
+    """Vrai pour une copie S4T (personnage d'un autre joueur installé chez nous). Lecture en échec : faux."""
+    try:
+        description, name = getattr(household, 'description', None), getattr(household, 'name', None)
+    except Exception:
+        return False
+    if type(description) is str and description.strip().upper().startswith(PREFIX[:3]):
+        return True
+    return type(name) is str and SUFFIX.strip().upper() in name.upper()
 
 
 def game_set_funds(target):
@@ -397,6 +413,12 @@ class CharacterSync:
         if observed is None:
             self.state = 'idle'
             return
+        if observed.get('s4tCopy'):
+            # Personnage d'un autre joueur : jamais lié, jamais synchronisé. Le sien reste autorisé.
+            self.state = 'foreign_copy'
+            log('character', 'foreign_copy')
+            self._inform('foreign/' + character['characterId'], _FOREIGN.format(character.get('name')))
+            return
         if character['status'] == 'pending_game':
             body = {'characterId': character['characterId'], 'gameHouseholdId': observed['householdId'],
                     'simIds': observed['simIds'], 'funds': _clamp(observed['funds'])}
@@ -409,7 +431,9 @@ class CharacterSync:
         if character['binding']['gameHouseholdId'] != observed['householdId']:
             self.state = 'mismatch'
             log('character', 'household_mismatch')
-            self.notify(TITLE, "Ce foyer n'est pas celui de {}. Charge son foyer ou choisis un autre personnage.".format(character.get('name')))
+            # Une fois par foyer chargé : la reprise suivante (voyage) ne répète pas l'avertissement.
+            self._inform('mismatch/' + character['characterId'] + '/' + str(observed['householdId']),
+                         _MISMATCH.format(character.get('name')))
             return
         pending = self._pending_bind(character['characterId'])
         if pending is not None and pending['body'].get('gameHouseholdId') != observed['householdId']:

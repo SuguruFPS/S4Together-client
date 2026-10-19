@@ -91,6 +91,21 @@ def check_move(household_id, active_household_id, zone):
         raise PermissionError('occupied')
 
 
+def _id64(value):
+    return type(value) is int and 0 < value < 2**64
+
+
+def residence_context(guid, slot_id, active_id):
+    """Identité du journal de résidence : foyer actif obligatoire, GUID ou numéro de slot suffit.
+
+    Une partie jamais enregistrée a souvent slot_id 0 : l'ancienne exigence des deux bloquait
+    tout remplacement de PNJ. Le format reste celui d'avant quand les deux sont valides.
+    """
+    if not _id64(active_id) or not (_id64(guid) or _id64(slot_id)):
+        raise LookupError('residence_save_identity')
+    return ':'.join(str(v if _id64(v) else 0) for v in (guid, slot_id, active_id))
+
+
 class RemoteHouseholds:
     """Appelée par AutoLink après home_lots et appearance_sync. Jamais d'exception vers le jeu."""
 
@@ -213,11 +228,9 @@ class GameHouseholds:
         import services
         from .residence import ResidenceJournal
         persistence = services.get_persistence_service()
-        ids = (persistence.get_save_slot_proto_guid(), persistence.get_save_slot_proto_buff().slot_id,
-               services.active_household_id())
-        if any(type(value) is not int or not 0 < value < 2**64 for value in ids):
-            raise LookupError('residence_save_identity')
-        context = ':'.join(str(value) for value in ids)
+        context = residence_context(persistence.get_save_slot_proto_guid(),
+                                    getattr(persistence.get_save_slot_proto_buff(), 'slot_id', None),
+                                    services.active_household_id())
         key = hashlib.sha256(context.encode('ascii')).hexdigest()
         root = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'S4Together' / 'residence-backups'
         return ResidenceJournal(root / (key + '.json'), context)
@@ -241,16 +254,46 @@ class GameHouseholds:
             Household.set_household_lot_ownership = guard.wrap(Household.set_household_lot_ownership)
         self.residence_guard = guard
         guard.set_homes({home['playerId']:int(home['zoneId']) for home in homes
-                         if home.get('zoneId') and str(home['zoneId']).isdigit()})
+                         if home.get('zoneId') and str(home['zoneId']).isdigit()}, clear_npc=True)
         try:
-            journal = self._residence_journal()
-            def occupant(zone_id):
-                zone = services.get_persistence_service().get_zone_proto_buff(zone_id)
-                return zone.household_id if zone is not None else None
-            journal.restore(set(guard.homes.values()), services.household_manager().get,
-                            occupant, services.active_household_id())
+            # Partie liée : seules les maisons des joueurs sont habitées ; aucun PNJ n'est rendu.
+            self._clear_npc_home(self._residence_journal())
         except Exception as error:
-            log('residence_restore', type(error).__name__)
+            # Une ligne par changement d'erreur, pas une par tick.
+            code = type(error).__name__
+            if getattr(self, '_restore_error', None) != code:
+                self._restore_error = code
+                log('residence_restore', type(error).__name__)
+            return
+        self._restore_error = None
+
+    def _clear_npc_home(self, journal):
+        """Libère au plus une maison PNJ non jouée par appel ; jamais le terrain chargé ni un échec déjà vu."""
+        import services
+        from .residence import replaceable
+        current = getattr(services, 'current_zone_id', lambda: None)()
+        if not current:
+            return False
+        failed = self.__dict__.setdefault('_evict_failed', set())
+        active = services.active_household_id()
+        manager = services.household_manager()
+        for zone in tuple(services.get_persistence_service().zone_proto_buffs_gen()):
+            household_id = getattr(zone, 'household_id', 0)
+            if (not household_id or household_id == active or household_id in failed
+                    or getattr(zone, 'active_plex', 0) or zone.zone_id == current):
+                continue
+            household = manager.get(household_id)
+            if not replaceable(household, active, zone.zone_id, current):
+                continue
+            try:
+                journal.evict(household, zone.zone_id)
+            except Exception as error:
+                failed.add(household_id)
+                log('residence_evict', type(error).__name__)
+                return False
+            log('residence_evict', 'ok')
+            return True
+        return False
 
     def _household(self, household_id):
         import services
@@ -369,7 +412,9 @@ class GameHouseholds:
         if allowNpc and zone is not None and zone.household_id not in (0, household.id):
             from .residence import replaceable
             npc = services.household_manager().get(zone.household_id)
-            if getattr(zone, 'active_plex', 0) or not replaceable(npc, services.active_household_id(), int(zoneId)):
+            current = getattr(services, 'current_zone_id', lambda: None)()
+            if getattr(zone, 'active_plex', 0) or not replaceable(npc, services.active_household_id(), int(zoneId),
+                                                                  current):
                 raise PermissionError('occupied')
             journal = self._residence_journal()
             def occupant(zone_id):

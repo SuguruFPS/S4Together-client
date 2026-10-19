@@ -1,4 +1,9 @@
-S4Together 0.1.60-game-test — mod de test, launcher 0.1.60 (serveur recommandé 0.1.41). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.61-game-test — mod de test, launcher 0.1.61 (serveur recommandé 0.1.41). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.61 — maisons des joueurs et personnage protege
+Dans une partie liee au serveur, seules les maisons des joueurs restent habitees : a chaque passage, une maison occupee par un foyer PNJ non joue est liberee (jamais le terrain ou tu te trouves, jamais un foyer joue). Ces PNJ restent en ville et se promenent, sans domicile ; ils ne reviennent plus dans une maison. L'ancien proprietaire PNJ d'une maison rachetee ne doit donc plus apparaitre chez toi.
+Si le foyer charge est la copie d'un autre joueur, il n'est jamais lie ni synchronise : charge ton propre foyer pour jouer ton personnage. Le retour automatique sur ton Sim n'existe pas encore (aucune commande du jeu verifiee pour changer de foyer).
+Presence renvoyee toutes les 10 s pour mieux voir un joueur deja arrive sur le terrain.
 
 NOUVEAUTES 0.1.60 — journal de crash
 Le journal %LOCALAPPDATA%\S4Together\logs\game-client.jsonl note chaque etape du chargement et du dechargement de zone (dont « Gerer les mondes ») et, pour chaque erreur du mod, le fichier, la ligne et la fonction concernes. Aucun message d'erreur, adresse, nom ni donnee reseau n'y est ecrit. Envoyer ce fichier, game-client.previous.jsonl et les lastException*.txt du dossier Documents\Electronic Arts\Les Sims 4 apres un crash. Aucun comportement de jeu modifie.

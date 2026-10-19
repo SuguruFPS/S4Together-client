@@ -16,6 +16,9 @@ from .notify import game_notify
 
 TITLE = 'S4Together'
 STATE_SECONDS = 1.0
+# Pose inchangée republiée au plus toutes les KEEPALIVE_SECONDS : un joueur qui arrive plus tard ne voit
+# que les Sims dont le serveur connaît la pose (perdue au redémarrage serveur, au rejoin ou au reset de vue).
+KEEPALIVE_SECONDS = 10.0
 ACK_TICKS = 15
 RETRY_TICKS = 30
 MAX_POSES = 8
@@ -267,9 +270,11 @@ class PresenceSync:
             log('presence_read', type(error).__name__)
             self.pause = RETRY_TICKS
             return None
-        if not poses or poses == self.sent_poses:
+        if not poses:
             return None
         now = self.clock()
+        if poses == self.sent_poses and self.last_state is not None and now - self.last_state < KEEPALIVE_SECONDS:
+            return None
         if any(mark is not None and now - mark < self.state_seconds for mark in (self.anchor, self.last_state)):
             return None
         payload = {'poses': poses}

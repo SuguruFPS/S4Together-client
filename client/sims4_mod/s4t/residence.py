@@ -10,6 +10,11 @@ import uuid
 from pathlib import Path
 from .journal import log
 
+# Joueur fictif des résidences libérées sans copie S4T : jamais rendues automatiquement.
+VACANT = '#vacant'
+MAX_RECORDS = 512
+MAX_BYTES = 262144
+
 
 def _unplayed_npc(household, active_id):
     """Sims d'un foyer PNJ jamais joué, non actif, non S4T et sans Sim sélectionnable ; None sinon."""
@@ -26,14 +31,21 @@ def _unplayed_npc(household, active_id):
     return infos
 
 
-def replaceable(household, active_id, zone_id):
-    """Un PNJ non joué, non sélectionnable et non instancié, dont le domicile est certain."""
+def replaceable(household, active_id, zone_id, current_zone=None):
+    """Un PNJ non joué et non sélectionnable dont le domicile est certain.
+
+    Instancié (il se promène sur le terrain chargé) : permis seulement si sa maison n'est pas
+    le terrain chargé, connu et différent. Jamais sur le terrain où l'on se trouve.
+    """
     try:
         if household is None or household.home_zone_id != zone_id:
             return False
         infos = _unplayed_npc(household, active_id)
-        return infos is not None and all(info.is_instanced(allow_hidden_flags=0xFFFFFFFF) is False
-                                         for info in infos)
+        if infos is None:
+            return False
+        if current_zone is not None and zone_id and current_zone != zone_id:
+            return True
+        return all(info.is_instanced(allow_hidden_flags=0xFFFFFFFF) is False for info in infos)
     except Exception:
         return False
 
@@ -73,13 +85,13 @@ class ResidenceJournal:
     def records(self):
         if not self.path.exists():
             return []
-        if self.path.is_symlink() or self.path.stat().st_size > 65536:
+        if self.path.is_symlink() or self.path.stat().st_size > MAX_BYTES:
             raise ValueError('residence_journal_size')
         value = json.loads(self.path.read_text(encoding='utf-8'))
         if (type(value) is not dict or set(value) != {'schema', 'context', 'records'}
                 or type(value['schema']) is not int or value['schema'] != 1
                 or value['context'] != self.context or type(value['records']) is not list
-                or len(value['records']) > 64):
+                or len(value['records']) > MAX_RECORDS):
             raise ValueError('residence_journal_context')
         seen = set()
         for record in value['records']:
@@ -95,7 +107,7 @@ class ResidenceJournal:
     def _write(self, records):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         data = json.dumps({'schema':1,'context':self.context,'records':records},sort_keys=True).encode('utf-8')
-        if len(data) > 65536 or len(records) > 64:
+        if len(data) > MAX_BYTES or len(records) > MAX_RECORDS:
             raise ValueError('residence_journal_full')
         temp = self.path.with_name(self.path.name + '.' + uuid.uuid4().hex + '.tmp')
         try:
@@ -124,6 +136,22 @@ class ResidenceJournal:
         except Exception:
             self._rollback(household, zone_id, previous, occupant,
                            _active_household_id() if active_id is None else active_id)
+            raise
+
+    def evict(self, household, zone_id):
+        """Libère la maison d'un PNJ non joué, sans copie installée ; le foyer reste en ville."""
+        previous = self.records()
+        if any(r['npcHouseholdId'] == household.id for r in previous):
+            raise RuntimeError('residence_already_backed_up')
+        self._write(previous + [{'npcHouseholdId':household.id,'zoneId':zone_id,'playerId':VACANT,
+                                 'proxyHouseholdId':household.id}])
+        try:
+            household.set_household_lot_ownership(zone_id=0)
+            household.save_data()
+            if household.home_zone_id != 0:
+                raise RuntimeError('residence_release_unconfirmed')
+        except Exception:
+            self._rollback(household, zone_id, previous, None, _active_household_id())
             raise
 
     def _rollback(self, household, zone_id, previous, occupant, active_id):
@@ -160,7 +188,7 @@ class ResidenceJournal:
         records = self.records()
         for record in tuple(records):
             zone_id = record['zoneId']
-            if zone_id in reserved:
+            if zone_id in reserved or record['playerId'] == VACANT:
                 continue
             household = lookup(record['npcHouseholdId'])
             owner = occupant(zone_id)
@@ -176,19 +204,27 @@ class ResidenceJournal:
                 self._write(records)
 
 
+def _npc_or_none(household, active_id):
+    try:
+        return _unplayed_npc(household, active_id) is not None
+    except Exception:
+        return False
+
+
 class ResidenceGuard:
     """Bloque les emménagements PNJ sur une résidence serveur et les déménagements autonomes de copies."""
 
     def __init__(self, active_household_id=lambda: None):
         self.homes = {}
         self.enabled = False
+        self.clear_npc = False
         self.active_household_id = active_household_id
 
-    def set_homes(self, homes):
-        self.homes, self.enabled = dict(homes), True
+    def set_homes(self, homes, clear_npc=False):
+        self.homes, self.enabled, self.clear_npc = dict(homes), True, clear_npc
 
     def clear(self):
-        self.homes, self.enabled = {}, False
+        self.homes, self.enabled, self.clear_npc = {}, False, False
 
     def wrap(self, original):
         @functools.wraps(original)
@@ -211,6 +247,10 @@ class ResidenceGuard:
                     return None
                 if zone_id in self.homes.values() and (not parsed or expected != zone_id):
                     log('residence_guard_block', 'reserved_home')
+                    return None
+                if self.clear_npc and zone_id and not parsed and _npc_or_none(household, active_id):
+                    # Maisons réservées aux joueurs : un PNJ non joué reste en ville, sans domicile.
+                    log('residence_guard_block', 'npc_home')
                     return None
             return original(household, zone_id, *args, **kwargs)
         wrapped.s4t_residence_guard = self
