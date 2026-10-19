@@ -102,8 +102,13 @@ class AutoLink:
                 self.disconnect_guard.reset()
             except Exception as error:
                 log('network_safety', type(error).__name__)
-            self.copy_lock.reset()
             self.stop()
+            # Même sans launcher, la copie S4T d'un autre joueur ne doit jamais être jouable :
+            # seule une alarme de verrou reste, sans réseau.
+            try:
+                self.handle = self.scheduler(self, POLL_SECONDS, self.lock_tick)
+            except Exception as error:
+                log('copy_lock', type(error).__name__)
             return False
         if self.play_intent is not None and 'solo_guard' not in settings:
             try:
@@ -449,6 +454,7 @@ class AutoLink:
             self.stop()
         except Exception as error:
             log('residence_teardown', type(error).__name__)
+        self.copy_lock.reset()
         try:
             self._flush(False)
         except Exception as error:
@@ -523,9 +529,16 @@ class AutoLink:
         except Exception as error:
             log('autoconnect_pump', type(error).__name__)
 
+    def lock_tick(self, _handle=None):
+        """Solo : seul le verrou des copies S4T tourne, aucun réseau."""
+        if not self.tearing_down:
+            self.copy_lock.update(True)
+
     def tick(self, _handle=None):
         if self.tearing_down:
             return
+        # Verrou des copies d'abord : une panne réseau plus bas ne doit jamais le sauter.
+        self.copy_lock.update(True)
         # Une exception ne doit jamais remonter dans la boucle d'alarmes du jeu.
         try:
             manager, adapter = self.runtime()
@@ -551,8 +564,6 @@ class AutoLink:
                                              getattr(presence, 'state', None) == 'joined')
             except Exception as error:
                 log('network_safety', type(error).__name__)
-            # Copie S4T d'un autre joueur active : partie en pause, connecté au serveur ou non.
-            self.copy_lock.update(bool(observation.get('loaded')))
             if self.speed_sync is not None:
                 try:
                     context = None
