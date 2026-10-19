@@ -30,7 +30,7 @@ class AutoLink:
                  character_sync=None, presence_sync=None, home_sync=None, appearance_sync=None, remote_households=None,
                  remote_motion=None, interaction_observer=None, interaction_publisher=None,
                  terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None, native_probe=None,
-                 disconnect_guard=None, remote_actions=None, speed_sync=None, copy_lock=None):
+                 disconnect_guard=None, remote_actions=None, speed_sync=None, copy_lock=None, business_sync=None):
         self.runtime = runtime
         self.offline_guard = offline_guard
         self.interaction_observer = interaction_observer
@@ -44,6 +44,7 @@ class AutoLink:
         self.remote_motion = remote_motion
         self.presence_sync = presence_sync
         self.home_sync = home_sync
+        self.business_sync = business_sync
         self.terrain_sync, self.terrain_events, self.terrain_factory = terrain_sync, terrain_events, terrain_factory
         self.terrain_context = None
         self.load_settings = load_settings
@@ -118,7 +119,7 @@ class AutoLink:
         if self.character_sync is not None:
             # Autre zone, peut-être autre foyer : l'état personnage est redemandé au serveur.
             self.character_sync.reset()
-        for sync in (self.home_sync, self.appearance_sync, self.remote_households, self.offline_guard):
+        for sync in (self.home_sync, self.business_sync, self.appearance_sync, self.remote_households, self.offline_guard):
             if sync is not None:
                 sync.reset()
         try:
@@ -165,6 +166,16 @@ class AutoLink:
     def _home(self, manager, status, loaded):
         """Maison publiée au serveur et maisons des autres résolues, une fois le personnage lié."""
         sync = self.character_sync
+        bound = bool(status.get('authenticated')) and bool(loaded) and sync is not None and sync.state == 'bound'
+        if self.business_sync is not None:
+            if bound:
+                try:
+                    self.business_sync.tick(manager, sync.character, getattr(manager, 'snapshot', None))
+                except Exception as error:
+                    log('business', type(error).__name__)
+            else:
+                # Solo, déconnecté ou personnage non lié : plus aucun commerce n'est bloqué.
+                self._reset_business()
         if self.home_sync is None or not status.get('authenticated') or not loaded or sync is None:
             return
         try:
@@ -172,6 +183,15 @@ class AutoLink:
             self.home_sync.tick(manager, character, getattr(manager, 'snapshot', None))
         except Exception as error:
             log('home_lot', type(error).__name__)
+
+    def _reset_business(self):
+        sync = self.business_sync
+        if sync is None or (sync.context is None and not sync.blocked_zones):
+            return
+        try:
+            sync.reset()
+        except Exception as error:
+            log('business_reset', type(error).__name__)
 
     def _forget_terrain(self, manager=None):
         if self.terrain_events is not None:
@@ -347,6 +367,7 @@ class AutoLink:
                     events = self.interaction_observer.drain()
             except Exception as error:
                 log('interaction_observer', type(error).__name__)
+        self._idle(context)
         if self.interaction_publisher is None or manager is None:
             return
         try:
@@ -359,6 +380,23 @@ class AutoLink:
                     self.remote_actions.tick(self.interaction_publisher.received)
         except Exception as error:
             log('interaction_publisher', type(error).__name__)
+
+    def _idle(self, context):
+        """Visite chez un autre joueur : nos Sims sans autonomie, sauf après AFK_SECONDS sans action dirigée."""
+        from .idle_autonomy import POLICY, visiting_other_player
+        if context is None:
+            POLICY.reset()  # Solo, partie non liée ou présence retirée : jeu normal.
+            return
+        try:
+            ghosts = getattr(self.remote_households, 'ghosts', None) or {}
+            households = [item.get('householdId') for item in ghosts.values() if isinstance(item, dict)]
+            visiting = visiting_other_player([value for value in households if value])
+            POLICY.update(visiting, getattr(self.interaction_observer, 'user_ids', ()))
+        except ImportError:
+            POLICY.reset()  # Hors jeu.
+        except Exception as error:
+            POLICY.reset()  # En cas de doute, ne jamais figer nos Sims.
+            log('idle_autonomy', type(error).__name__)
 
     def _motion(self, manager):
         """Après _presence, même hors ligne : c'est ce tick qui retire les instances d'un joueur parti."""
@@ -434,6 +472,11 @@ class AutoLink:
                 self.home_sync.flush(manager, sync.character, getattr(manager, 'snapshot', None))
             except Exception as error:
                 log('home_lot_flush', type(error).__name__)
+        if self.business_sync is not None:
+            try:
+                self.business_sync.flush(manager, sync.character, getattr(manager, 'snapshot', None))
+            except Exception as error:
+                log('business_flush', type(error).__name__)
         if saved:
             self._terrain(manager, manager.status(), True, flush=True)
 
@@ -455,6 +498,7 @@ class AutoLink:
         except Exception as error:
             log('residence_teardown', type(error).__name__)
         self.copy_lock.reset()
+        self._reset_business()
         try:
             self._flush(False)
         except Exception as error:
@@ -470,6 +514,7 @@ class AutoLink:
     def deliver(self, manager, messages):
         """Réponses lues hors de tick() (commande s4t.poll) : sans cela, un ACK personnage serait perdu."""
         for name, sync in (('character', self.character_sync), ('presence', self.presence_sync), ('home_lot', self.home_sync),
+                           ('business', self.business_sync),
                            ('appearance', self.appearance_sync), ('remote_motion', self.remote_motion),
                            ('interaction_publisher', self.interaction_publisher), ('terrain', self.terrain_sync),
                            ('native_speed', self.speed_sync)):

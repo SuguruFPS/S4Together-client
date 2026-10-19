@@ -1,4 +1,9 @@
-S4Together 0.1.65-game-test — mod de test, launcher 0.1.65 (serveur recommandé 0.1.42). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.66-game-test — mod de test, launcher 0.1.66 (serveur recommandé 0.1.43). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.66 — commerces protégés, Sims plus naturels
+Ton commerce (clinique vétérinaire, boutique, restaurant…) est réservé à ton nom sur le serveur : les autres joueurs ne peuvent plus l'acheter ni y emménager. Le rasage (bulldozer) du jeu ne peut pas être bloqué.
+Chez un autre joueur, ton Sim n'agit plus tout seul ; la copie de son Sim ne reste plus figée devant la télé. Après 5 minutes d'inactivité, ton Sim reprend son autonomie pour ne pas mourir de faim.
+Les anciens habitants (PNJ) quittent toutes les maisons pour qu'un joueur puisse les racheter.
 
 NOUVEAUTES 0.1.65 — protection des personnages aussi sans launcher
 La copie S4T du personnage d'un autre joueur reste en pause même si tu lances le jeu sans le launcher. Ouvre « Gérer les mondes » et charge ton propre foyer.

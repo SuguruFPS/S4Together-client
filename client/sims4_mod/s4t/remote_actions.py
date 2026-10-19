@@ -72,7 +72,8 @@ class RemoteActions:
                 continue
             if actor is None:
                 continue
-            if (event['state'] != 'running' or event['origin'] != 'user' or event['visible'] is not True
+            # Autonome aussi : le Sim du propriétaire s'assoit souvent seul ; sans cela la copie garde l'ancienne place.
+            if (event['state'] != 'running' or event['origin'] not in ('user', 'autonomy') or event['visible'] is not True
                     or event['target']['kind'] != 'object'):
                 continue
             if self.active.get(player, {}).get('key') != key:
@@ -174,7 +175,10 @@ class GameActions:
         if not candidates or len(candidates) > 1 and (placement is not None or candidates[1][0] - candidates[0][0] < .25):
             return None  # Siège absent ou ambigu : aucun choix arbitraire.
         result = sim.push_super_affordance(affordance, candidates[0][1], context)
-        return getattr(result, 'interaction', None) if result else None
+        interaction = getattr(result, 'interaction', None) if result else None
+        if interaction is not None:
+            sim._s4t_replay = interaction  # Épargné par remote_motion.settle.
+        return interaction
 
     @staticmethod
     def _valid_placement(value):
@@ -185,5 +189,7 @@ class GameActions:
 
     def stop(self, actor, interaction):
         from interactions.interaction_finisher import FinishingType
-        self.motion._exact(actor[0], actor[1], actor[2])
+        sim = self.motion._exact(actor[0], actor[1], actor[2])
         interaction.cancel(FinishingType.USER_CANCEL, cancel_reason_msg='S4Together: owner action ended')
+        if getattr(sim, '_s4t_replay', None) is interaction:
+            sim._s4t_replay = None

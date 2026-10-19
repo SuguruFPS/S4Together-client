@@ -155,10 +155,15 @@ class ResidenceJournal:
     def evict(self, household, zone_id):
         """Libère la maison d'un PNJ non joué, sans copie installée ; le foyer reste en ville."""
         previous = self.records()
-        if any(r['npcHouseholdId'] == household.id for r in previous):
+        mine = [r for r in previous if r['npcHouseholdId'] == household.id]
+        vacant = {'npcHouseholdId':household.id,'zoneId':zone_id,'playerId':VACANT,'proxyHouseholdId':household.id}
+        if mine and mine != [vacant]:
             raise RuntimeError('residence_already_backed_up')
-        self._write(previous + [{'npcHouseholdId':household.id,'zoneId':zone_id,'playerId':VACANT,
-                                 'proxyHouseholdId':household.id}])
+        if not mine:
+            self._write(previous + [vacant])
+        else:
+            # Expulsion déjà journalisée mais non enregistrée par le joueur : le PNJ est revenu au rechargement.
+            previous = [r for r in previous if r is not mine[0]]
         try:
             household.set_household_lot_ownership(zone_id=0)
             household.save_data()
@@ -233,6 +238,11 @@ class ResidenceGuard:
         self.enabled = False
         self.clear_npc = False
         self.active_household_id = active_household_id
+        # Commerces réservés par d'autres joueurs (business_lots.BusinessSync) : personne n'y emménage.
+        self.businesses = frozenset()
+
+    def set_businesses(self, zones):
+        self.businesses = frozenset(zones)
 
     def set_homes(self, homes, clear_npc=False):
         self.homes, self.enabled, self.clear_npc = dict(homes), True, clear_npc
@@ -247,6 +257,11 @@ class ResidenceGuard:
             # (TypeError au chargement du foyer, erreur 102:5d3738c3 du 19/10/2026).
             def call():
                 return original(household, *args, **kwargs)
+            if self.businesses:
+                target = kwargs['zone_id'] if 'zone_id' in kwargs else (args[0] if args else 0)
+                if target and target in self.businesses:
+                    log('residence_guard_block', 'foreign_business')
+                    return None
             # Inactif pendant les transitions : ne même pas lire les propriétés natives.
             if not self.enabled:
                 return call()

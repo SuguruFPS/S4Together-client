@@ -241,6 +241,7 @@ class InteractionObserver:
         self.state = 'idle'
         self.overflow = self.rejected = self.unidentified = 0
         self.truncated = False
+        self.user_ids = frozenset()
 
     def tick(self):
         """Un relevé au plus par MIN_INTERVAL. Rend les événements nouveaux ; ne lève jamais."""
@@ -263,6 +264,7 @@ class InteractionObserver:
         unidentified = reading.get('unidentified')
         self.unidentified = unidentified if type(unidentified) is int and 0 <= unidentified <= 1024 else 0
         entries, self.rejected = self._entries(reading.get('interactions'))
+        self.user_ids = frozenset(local for local, entry in entries.items() if entry['origin'] == 'user')
         events = []
         if actor != self.actor:
             for record in self.tracked.values():

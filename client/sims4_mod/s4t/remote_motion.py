@@ -158,6 +158,37 @@ def replace_route(sim, affordance, target, context, finish_type):
     sim._s4t_motion_route = getattr(result, 'interaction', None)
 
 
+def stale_interactions(sim):
+    """Actions visibles de la copie qui ne viennent pas du propriétaire : restaurées de la sauvegarde (fauteuil,
+    télé) ou restées d'avant. Exclut le trajet et le rejeu S4T, les actions qui finissent et les conversations
+    (un autre joueur peut parler à la copie)."""
+    ours = {id(getattr(sim, '_s4t_motion_route', None)), id(getattr(sim, '_s4t_replay', None))}
+    found, seen = [], set()
+    for source in (getattr(sim, 'si_state', None), getattr(sim, 'queue', None)):
+        for interaction in list(source or ()):
+            key = id(interaction)
+            if key in seen or key in ours:
+                continue
+            seen.add(key)
+            if (getattr(interaction, 'is_finishing', False) or getattr(interaction, 'visible', False) is not True
+                    or getattr(interaction, 'social_group', None) is not None):
+                continue
+            found.append(interaction)
+    return found
+
+
+def settle(sim, finish_type):
+    """Annule les actions périmées de la copie ; rend le nombre annulé. Une annulation refusée n'arrête pas les autres."""
+    count = 0
+    for interaction in stale_interactions(sim):
+        try:
+            interaction.cancel(finish_type, cancel_reason_msg='S4Together: proxy follows owner')
+            count += 1
+        except Exception as error:
+            log('remote_motion', 'settle:' + type(error).__name__)
+    return count
+
+
 class RemoteMotion:
     """Appelée par PresenceSync (réception) et AutoLink (tick). Jamais d'exception vers le jeu."""
 
@@ -166,6 +197,7 @@ class RemoteMotion:
         self.new_id = new_id
         self.rejected = {}
         self.spawned = self.routed = self.gaps = self.despawned = self.abandoned = self.adopted = 0
+        self.settled = 0
         self.applied = self.animations = self.unrepresented = 0
         self.snapshots = {'requested': 0, 'applied': 0, 'refused': 0, 'timeouts': 0, 'stale': 0}
         self.attempts = {}       # playerId -> spawns ratés ; gardé d'une zone à l'autre (pas de boucle d'échecs).
@@ -656,8 +688,10 @@ class RemoteMotion:
             if action != 'route':
                 continue
             try:
-                self.adapter.route(player, household, pose, current['instance'])
+                cancelled = self.adapter.route(player, household, pose, current['instance'])
                 self.routed += 1
+                if type(cancelled) is int:
+                    self.settled += cancelled
             except Exception as error:
                 self._reject('route:' + type(error).__name__)
             return
@@ -674,6 +708,15 @@ class RemoteMotion:
         self.foreign.discard(player)
         self.adopted += 1
         log('remote_motion', 'adopted')
+        # Copie chargée avec la sauvegarde : elle reprend son ancienne action (fauteuil, télé). On l'arrête une fois.
+        clear = getattr(self.adapter, 'settle', None)
+        if clear is not None:
+            try:
+                cancelled = clear(player, household, current['instance'])
+                if type(cancelled) is int:
+                    self.settled += cancelled
+            except Exception as error:
+                self._reject('settle:' + type(error).__name__)
         return True
 
     def _not_ours(self, player):
@@ -730,7 +773,7 @@ class RemoteMotion:
                 'participants': len(self.participants), 'streams': len(self.streams), 'poses': len(self.poses),
                 'posesApplied': self.applied, 'mapped': len(self.mapping), 'unrepresented': self.unrepresented,
                 'instances': len(self.owned), 'foreign': len(self.foreign), 'rotation': 'spawn_only',
-                'spawned': self.spawned, 'adopted': self.adopted, 'routed': self.routed,
+                'spawned': self.spawned, 'adopted': self.adopted, 'routed': self.routed, 'settled': self.settled,
                 'teleported': 0, 'largeGaps': self.gaps, 'levelUnknown': len(self.unlevel),
                 'gapPending': sum(1 for move in self.moves.values() if move['gap'] == 'asked'), 'despawned': self.despawned, 'abandoned': self.abandoned,
                 'failed': sum(1 for n in self.attempts.values() if n >= MAX_ATTEMPTS),
@@ -861,7 +904,15 @@ class GameMotion:
         pick = PickInfo(pick_type=PickType.PICK_TERRAIN, target=target, location=position, routing_surface=surface)
         context = InteractionContext(sim, InteractionContext.SOURCE_SCRIPT_WITH_USER_INTENT, Priority.High, pick=pick,
                                      group_id=1)
+        # Le propriétaire a bougé : la copie quitte d'abord le fauteuil ou la télé qu'il n'utilise plus.
+        cancelled = settle(sim, FinishingType.USER_CANCEL)
         replace_route(sim, CommandTuning.TERRAIN_GOHERE_AFFORDANCE, target, context, FinishingType.USER_CANCEL)
+        return cancelled
+
+    def settle(self, player_id, household_id, instance):
+        """Arrêt unique des actions restaurées d'une copie adoptée (voir stale_interactions)."""
+        from interactions.interaction_finisher import FinishingType
+        return settle(self._exact(player_id, household_id, instance), FinishingType.USER_CANCEL)
 
     def despawn(self, player_id, household_id, instance):
         """Retire l'instance du terrain. Le SimInfo et le foyer restent : jamais de remove_permanently."""

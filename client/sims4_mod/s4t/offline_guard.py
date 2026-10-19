@@ -143,13 +143,18 @@ def veto(is_blocked, original, failure):
     return run
 
 
-def veto_autonomy(original, failure=False):
-    """Le proxy distant non sélectionnable ne choisit jamais sa propre prochaine interaction autonome."""
+def veto_autonomy(original, failure=False, own_blocked=None):
+    """Le proxy distant non sélectionnable ne choisit jamais sa propre prochaine interaction autonome.
+
+    `own_blocked()` vrai : nos Sims jouables n'agissent pas seuls non plus (visite chez un autre joueur).
+    """
     def test(component, *args, **kwargs):
         try:
             info = component.owner.sim_info
             if (info.is_selectable is False
                     and parse_description(getattr(info.household, 'description', None)) is not None):
+                return failure
+            if info.is_selectable is True and own_blocked is not None and own_blocked():
                 return failure
         except (AttributeError, TypeError):
             pass
@@ -201,7 +206,8 @@ class GameOffline:
             from autonomy.autonomy_component import AutonomyComponent
             original = AutonomyComponent._test_full_autonomy
             if getattr(original, 's4t_original', None) is None:
-                AutonomyComponent._test_full_autonomy = veto_autonomy(original)
+                from .idle_autonomy import POLICY
+                AutonomyComponent._test_full_autonomy = veto_autonomy(original, own_blocked=POLICY.blocks)
         except (ImportError, AttributeError) as error:
             log('offline_guard', 'autonomy_hook:' + type(error).__name__)
         try:

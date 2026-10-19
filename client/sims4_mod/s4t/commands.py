@@ -65,6 +65,7 @@ def auto_link():
             sync = TerrainSync(reader.locate, reader.read, applier.apply)
             return sync, game_events(sync.mark_dirty)
         from .offline_guard import OfflineGuard
+        from .business_lots import BusinessSync
         from .remote_actions import RemoteActions
         from .native_speed import NativeSpeedSync, GameSpeed
         speed = GameSpeed()
@@ -73,7 +74,7 @@ def auto_link():
             probe.write(probe.inspect())
         _auto = AutoLink(runtime, lambda: ConfigStore().settings(), play_intent=PlayIntentRunner(ConfigStore()),
                          season_sync=SeasonSync(ConfigStore()), character_sync=CharacterSync(ConfigStore()),
-                         presence_sync=presence, home_sync=HomeLotSync(),
+                         presence_sync=presence, home_sync=HomeLotSync(), business_sync=BusinessSync(),
                          appearance_sync=appearance, remote_households=households,
                          remote_motion=motion, interaction_observer=interactions,
                          interaction_publisher=InteractionPublisher(peer_streams=lambda: dict(motion.streams)),
