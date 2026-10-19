@@ -106,10 +106,13 @@ class OwnSimGuard:
         self.switch = switch
         # Bascules déjà demandées dans cette session de jeu. Survit à reset() : jamais de boucle de chargement.
         self.switched = set()
+        # Chargements de zone : la bascule hors d'une copie S4T est redemandée à chacun (une fois par chargement).
+        self.loads = 0
         self.reset()
 
     def reset(self):
         """Nouvelle zone ou reconnexion."""
+        self.loads += 1
         self.load_pending = False
         self.failed_on = None  # Sim actif pour lequel le retour a échoué : pas de nouvel essai tant qu'il reste actif.
         self.last_note = None
@@ -168,13 +171,19 @@ class OwnSimGuard:
         self.last_note = None
         return 'reselected'
 
-    def switch_household(self, character):
-        """Bascule vers le foyer du personnage : 'requested', 'already_requested' ou la raison du refus."""
+    def switch_household(self, character, every_load=False):
+        """Bascule vers le foyer du personnage : 'requested', 'already_requested' ou la raison du refus.
+
+        every_load : copie S4T d'un autre joueur chargée ; la bascule est redemandée à chaque chargement de zone,
+        pas une seule fois par session, pour qu'on ne puisse pas rester sur la copie en la rechargeant.
+        """
         binding = (character or {}).get('binding') or {}
         household, sims = binding.get('gameHouseholdId'), _ids(binding.get('simIds'))
         if not isinstance(household, str) or not _NATIVE.match(household) or not sims:
             return 'no_binding'
         key = str(character.get('characterId')) + '/' + household
+        if every_load:
+            key += '/load' + str(self.loads)
         if key in self.switched:
             return 'already_requested'
         self.switched.add(key)

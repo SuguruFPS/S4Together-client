@@ -5,6 +5,7 @@ repeating, ...), date_and_time.TimeSpan et date_and_time.TICKS_PER_REAL_WORLD_SE
 """
 from .journal import log
 from .disconnect_guard import DisconnectGuard
+from .copy_lock import CopyLock
 
 POLL_SECONDS = 1
 NETWORK_SECONDS = .25
@@ -29,7 +30,7 @@ class AutoLink:
                  character_sync=None, presence_sync=None, home_sync=None, appearance_sync=None, remote_households=None,
                  remote_motion=None, interaction_observer=None, interaction_publisher=None,
                  terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None, native_probe=None,
-                 disconnect_guard=None, remote_actions=None, speed_sync=None):
+                 disconnect_guard=None, remote_actions=None, speed_sync=None, copy_lock=None):
         self.runtime = runtime
         self.offline_guard = offline_guard
         self.interaction_observer = interaction_observer
@@ -63,6 +64,10 @@ class AutoLink:
             from .notify import game_notify
             disconnect_guard = DisconnectGuard(notify=game_notify)
         self.disconnect_guard = disconnect_guard
+        if copy_lock is None:
+            from .notify import game_notify
+            copy_lock = CopyLock(notify=game_notify)
+        self.copy_lock = copy_lock
 
     def _native_probe(self, status, loaded):
         # Diagnostic en lecture seule, une tentative par session du jeu, après confirmation native.
@@ -97,6 +102,7 @@ class AutoLink:
                 self.disconnect_guard.reset()
             except Exception as error:
                 log('network_safety', type(error).__name__)
+            self.copy_lock.reset()
             self.stop()
             return False
         if self.play_intent is not None and 'solo_guard' not in settings:
@@ -545,6 +551,8 @@ class AutoLink:
                                              getattr(presence, 'state', None) == 'joined')
             except Exception as error:
                 log('network_safety', type(error).__name__)
+            # Copie S4T d'un autre joueur active : partie en pause, connecté au serveur ou non.
+            self.copy_lock.update(bool(observation.get('loaded')))
             if self.speed_sync is not None:
                 try:
                     context = None

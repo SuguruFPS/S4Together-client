@@ -1,4 +1,7 @@
-S4Together 0.1.63-game-test — mod de test, launcher 0.1.63 (serveur recommandé 0.1.42). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.64-game-test — mod de test, launcher 0.1.64 (serveur recommandé 0.1.42). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.64 — personnages des autres joueurs protégés
+Tu ne peux plus jouer la copie S4T du personnage d'un autre joueur : si tu la charges, le jeu te renvoie vers ton foyer et la partie reste en pause tant que cette copie est active. Ouvre « Gérer les mondes » et charge ton propre foyer. Une copie n'envoie rien au serveur : la vraie partie de l'autre joueur n'est jamais touchée.
 
 NOUVEAUTES 0.1.63 — correctif chargement du foyer
 Corrige l'erreur de chargement 102:5d3738c3 a l'ouverture de ton foyer : la protection des maisons transmettait mal le terrain au jeu, qui plantait pendant le chargement.

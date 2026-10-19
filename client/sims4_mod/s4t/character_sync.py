@@ -261,11 +261,12 @@ class CharacterSync:
             log('own_sim', action + ':' + type(error).__name__)
             return None
 
-    def _switch_text(self, character, refusal):
+    def _switch_text(self, character, refusal, every_load=False):
         """Bascule vers le foyer du personnage lié ; sinon le refus, avec la raison si la bascule a échoué."""
         if character.get('status') != 'bound':
             return refusal
-        result = self._own('switch_household', character)
+        result = self._own('switch_household', character, every_load) if every_load else \
+            self._own('switch_household', character)
         if result == 'requested':
             return _SWITCH.format(character.get('name'))
         if result in (None, 'already_requested'):
@@ -453,7 +454,7 @@ class CharacterSync:
             self.state = 'foreign_copy'
             log('character', 'foreign_copy')
             self._inform('foreign/' + character['characterId'],
-                         self._switch_text(character, _FOREIGN.format(character.get('name'))))
+                         self._switch_text(character, _FOREIGN.format(character.get('name')), every_load=True))
             return
         if character['status'] == 'pending_game':
             body = {'characterId': character['characterId'], 'gameHouseholdId': observed['householdId'],
