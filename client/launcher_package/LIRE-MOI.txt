@@ -1,4 +1,7 @@
-S4Together 0.1.59-game-test — mod de test, launcher 0.1.59 (serveur recommandé 0.1.41). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.60-game-test — mod de test, launcher 0.1.60 (serveur recommandé 0.1.41). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.60 — journal de crash
+Le journal %LOCALAPPDATA%\S4Together\logs\game-client.jsonl note chaque etape du chargement et du dechargement de zone (dont « Gerer les mondes ») et, pour chaque erreur du mod, le fichier, la ligne et la fonction concernes. Aucun message d'erreur, adresse, nom ni donnee reseau n'y est ecrit. Envoyer ce fichier, game-client.previous.jsonl et les lastException*.txt du dossier Documents\Electronic Arts\Les Sims 4 apres un crash. Aucun comportement de jeu modifie.
 
 NOUVEAUTES 0.1.59 — reprise apres instantane perdu
 Un grand ecart de position ne reste plus definitivement bloque apres la perte du premier instantane : jusqu'a trois demandes espacees par episode, sans teleportation. Une pose confirmee est toujours necessaire avant le trajet. Apres trois echecs, un nouvel evenement de resynchronisation reste necessaire. Cela ne garantit pas encore que tous les blocages observes en jeu soient corriges.

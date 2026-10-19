@@ -36,12 +36,18 @@ def _install_teardown(zone_class, commands):
     if getattr(method, '_s4t_wrapper', False):
         return True
     def teardown(self, *args, **kwargs):
+        # Étapes écrites et refermées une à une : après un crash natif (ex. « Gérer les mondes »),
+        # la dernière ligne du journal dit si le jeu est tombé dans le mod ou dans son propre déchargement.
+        log('zone_teardown', 'start')
         try:
             if commands._auto is not None:
                 commands._auto.on_zone_teardown()
+            log('zone_teardown', 'mod_done')
         except Exception as error:
             log('zone_teardown', type(error).__name__)
-        return method(self, *args, **kwargs)
+        result = method(self, *args, **kwargs)
+        log('zone_teardown', 'game_done')
+        return result
     teardown._s4t_wrapper = True
     zone_class.on_teardown = teardown
     return True
@@ -104,6 +110,7 @@ def install():
         if getattr(method, '_s4t_wrapper', False):
             return True
         def loaded(self):
+            log('zone_loading', 'start')
             result = method(self)
             try:
                 if _first_pass(self):
