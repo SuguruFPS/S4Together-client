@@ -146,6 +146,7 @@ public partial class MainWindow : Window
         CatalogDisconnectButton.IsEnabled = !busy;
         PlayHint.Text = PlayReadiness();
         NavStatus.Text = link is null ? "Hors ligne" : "En ligne";
+        ShowPing(link?.Session.LastPingMs);
         NavCharacters.Visibility = NavCommunity.Visibility = NavDiagnostic.Visibility = link is null ? Visibility.Collapsed : Visibility.Visible;
         NavCommunity.IsEnabled = link is not null;
         ChatComposer.IsEnabled = link is not null;
@@ -286,6 +287,7 @@ public partial class MainWindow : Window
             RefreshDirectory();
             created.EventReceived += message => Dispatcher.InvokeAsync(() => OnServerEvent(message));
             created.Closed += reason => Dispatcher.InvokeAsync(() => OnLinkClosed(created, reason));
+            created.Session.PingMeasured += ms => Dispatcher.InvokeAsync(() => { if (ReferenceEquals(link, created)) ShowPing(ms); });
             created.Bridge.ModConnectionChanged += connected => Dispatcher.InvokeAsync(() => { if (ReferenceEquals(link, created)) OnModConnection(connected); });
             created.Bridge.Rejected += reason => Dispatcher.InvokeAsync(() => Status("Connexion locale refusée : " + reason));
             created.Bridge.SaveContextObserved += context => Dispatcher.InvokeAsync(() => { if(ReferenceEquals(link,created))loadedSaveContext=context; });
@@ -344,6 +346,23 @@ public partial class MainWindow : Window
         ServerStatus.Text = reason;
         RefreshAll();
         await ReviewServerModsAsync();
+    }
+
+    /// <summary>Pastille de la barre latérale : couleur selon la latence, gris hors ligne.</summary>
+    void ShowPing(long? milliseconds)
+    {
+        var level = link is null ? PingLevel.Unknown : PingQuality.Classify(milliseconds);
+        PingText.Text = link is null ? "" : PingQuality.Format(milliseconds);
+        NavStatusDot.Fill = (Brush)FindResource(level switch
+        {
+            PingLevel.Good => "Accent",
+            PingLevel.Fair => "Warn",
+            PingLevel.Poor => "Bad",
+            _ => link is null ? "MutedBrush" : "Accent",
+        });
+        NavStatusDot.ToolTip = link is null ? "Hors ligne"
+            : milliseconds is null ? "Connecté — latence en cours de mesure"
+            : $"Latence avec le serveur : {milliseconds} ms";
     }
 
     void OnLinkClosed(MultiplayerLink closed, string reason)

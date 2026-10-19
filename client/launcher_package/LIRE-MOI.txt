@@ -1,4 +1,9 @@
-S4Together 0.1.66-game-test — mod de test, launcher 0.1.66 (serveur recommandé 0.1.43). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.67-game-test — mod de test, launcher 0.1.67 (serveur recommandé 0.1.43). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.67 — moins de latence, nouveau design
+Connexion au serveur plus réactive : messages envoyés sans attente réseau (TCP_NODELAY) et lus plus souvent par le mod.
+Le launcher affiche ta latence (ping) en bas à gauche : point vert (moins de 80 ms), orange (moins de 150 ms) ou rouge.
+Nouveau design du launcher : couleurs, icônes, bannière d'accueil et barres de défilement fines.
 
 NOUVEAUTES 0.1.66 — commerces protégés, Sims plus naturels
 Ton commerce (clinique vétérinaire, boutique, restaurant…) est réservé à ton nom sur le serveur : les autres joueurs ne peuvent plus l'acheter ni y emménager. Le rasage (bulldozer) du jeu ne peut pas être bloqué.

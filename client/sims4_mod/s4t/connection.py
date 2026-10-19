@@ -12,6 +12,9 @@ from .config import ConfigStore
 from .websocket import TlsUnavailable, WebSocket, ssl, validate_endpoint
 from .journal import log
 
+# Attente réseau maximale d'une requête mise en file avant son envoi (était 100 ms).
+NETWORK_WAIT_SECONDS = 0.02
+
 
 def classify_failure(failure):
     """Code d'erreur stable, sans texte d'exception ni endpoint."""
@@ -145,7 +148,7 @@ class ConnectionManager:
                 if time.monotonic() - last_ping > 10:
                     transport.send_text(json.dumps({'v': 1, 'id': str(uuid.uuid4()), 'type': 'ping', 'payload': {}}))
                     last_ping = time.monotonic()
-                if transport.buffer or select.select([transport.socket], [], [], 0.1)[0]:
+                if transport.buffer or select.select([transport.socket], [], [], NETWORK_WAIT_SECONDS)[0]:
                     message = assembler.accept(transport.receive_text())
                     if message is None:
                         continue

@@ -56,6 +56,24 @@ def validate_endpoint(url, allow_lan=False):
     return parsed, port
 
 
+def mask_payload(payload, mask):
+    """Masque RFC 6455 en une seule opération entière (l'ancienne boucle octet par octet coûtait
+    plusieurs millisecondes par message de quelques Ko dans le Python du jeu)."""
+    size = len(payload)
+    if not size:
+        return b''
+    key = (mask * (size // 4 + 1))[:size]
+    return (int.from_bytes(payload, 'little') ^ int.from_bytes(key, 'little')).to_bytes(size, 'little')
+
+
+def tune_socket(sock):
+    """Désactive Nagle : les petits messages de jeu partent tout de suite au lieu d'attendre un ACK."""
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    except (OSError, AttributeError):
+        pass  # Option facultative : la connexion reste valable sans elle.
+
+
 class WebSocket:
     def __init__(self, sock, initial=b'', max_message=65536):
         self.socket = sock
@@ -69,6 +87,7 @@ class WebSocket:
     def connect(cls, url, timeout=5.0, allow_lan=False):
         parsed, port = validate_endpoint(url, allow_lan=allow_lan)
         sock = socket.create_connection((parsed.hostname, port), timeout)
+        tune_socket(sock)
         try:
             if parsed.scheme == 'ws':
                 # Même localhost doit effectivement aboutir à une adresse locale.
@@ -153,7 +172,7 @@ class WebSocket:
         else:
             prefix += b'\xff' + struct.pack('!Q', n)
         mask = os.urandom(4)
-        data = prefix + mask + bytes(x ^ mask[i % 4] for i, x in enumerate(payload))
+        data = prefix + mask + mask_payload(payload, mask)
         with self.send_lock:
             if self.closed:
                 raise EOFError('Connexion fermée')

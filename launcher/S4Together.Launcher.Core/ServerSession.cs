@@ -86,6 +86,10 @@ public sealed class ServerSession : IAsyncDisposable
     /// <summary>Réponse à une requête relayée pour quelqu'un d'autre (pont du mod).</summary>
     public event Action<JsonObject>? ForeignReplyReceived;
     public event Action<string>? Closed;
+    /// <summary>Aller-retour du dernier heartbeat réussi, en millisecondes ; null avant la première mesure.</summary>
+    public long? LastPingMs { get; private set; }
+    /// <summary>Levé sur le fil du heartbeat après chaque ping réussi (ms).</summary>
+    public event Action<long>? PingMeasured;
 
     ServerSession(WebSocket socket) => this.socket = socket;
 
@@ -219,8 +223,13 @@ public sealed class ServerSession : IAsyncDisposable
                 await Task.Delay(PingInterval, life.Token);
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(life.Token);
                 deadline.CancelAfter(PingTimeout);
+                var started = System.Diagnostics.Stopwatch.GetTimestamp();
                 var reply = await RequestAsync("ping", cancel: deadline.Token);
                 if (!reply.Ok) throw new ServerRejectedException(reply.Code, "Heartbeat refused");
+                var elapsed = (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                LastPingMs = elapsed;
+                try { PingMeasured?.Invoke(elapsed); }
+                catch (Exception e) { System.Diagnostics.Trace.TraceWarning($"Affichage du ping en échec : {e.Message}"); } // l'affichage ne doit pas couper la session
             }
         }
         catch (Exception e) when (e is OperationCanceledException or ServerRejectedException or WebSocketException or InvalidOperationException or IOException)

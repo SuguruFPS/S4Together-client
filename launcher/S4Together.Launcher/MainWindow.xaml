@@ -14,15 +14,27 @@
     </Grid.RowDefinitions>
 
     <!-- Navigation -->
-    <Border Grid.RowSpan="2" Background="{StaticResource Panel}" Padding="14,20">
+    <Border Grid.RowSpan="2" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0" Padding="14,20">
       <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Margin="6,0,0,22">
-          <TextBlock Text="S4Together" FontSize="22" FontWeight="Bold"/>
-          <TextBlock x:Name="VersionText" Style="{StaticResource Muted}" FontSize="11"/>
-        </StackPanel>
-        <StackPanel DockPanel.Dock="Bottom">
-          <TextBlock x:Name="NavStatus" Style="{StaticResource Muted}" FontSize="11" Margin="6,0"/>
-        </StackPanel>
+        <Grid DockPanel.Dock="Top" Margin="6,0,0,26">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <!-- Logo : losange vert façon plumbob. -->
+          <Path Width="22" Height="34" Stretch="Uniform" Margin="0,0,10,0" VerticalAlignment="Center"
+                Data="M 11,0 L 22,17 L 11,34 L 0,17 Z M 11,0 L 11,34 M 0,17 L 22,17" Fill="{StaticResource AccentGradient}" Stroke="#1E7A52" StrokeThickness="0.8"/>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock Text="S4Together" FontSize="20" FontWeight="Bold"/>
+            <TextBlock x:Name="VersionText" Style="{StaticResource Muted}" FontSize="11"/>
+          </StackPanel>
+        </Grid>
+        <!-- État de connexion et ping mesuré par le heartbeat. -->
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource Pill}" HorizontalAlignment="Stretch" Padding="12,8">
+          <DockPanel>
+            <Ellipse x:Name="NavStatusDot" Width="9" Height="9" Fill="{StaticResource MutedBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="PingText" DockPanel.Dock="Right" Style="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center" TextWrapping="NoWrap"
+                       AutomationProperties.Name="Latence avec le serveur"/>
+            <TextBlock x:Name="NavStatus" FontSize="12" VerticalAlignment="Center" TextWrapping="NoWrap"/>
+          </DockPanel>
+        </Border>
         <StackPanel x:Name="NavMenu">
           <RadioButton x:Name="NavHome" Style="{StaticResource Nav}" Content="Accueil" IsChecked="True" Checked="Nav_Checked" Tag="PageHome"/>
           <RadioButton Style="{StaticResource Nav}" Content="Serveur" Checked="Nav_Checked" Tag="PageServer"/>
@@ -39,19 +51,37 @@
       <!-- Accueil -->
       <ScrollViewer x:Name="PageHome" VerticalScrollBarVisibility="Auto">
         <StackPanel>
-          <TextBlock Style="{StaticResource H1}" Text="Prêt à jouer ensemble ?"/>
+          <Border CornerRadius="14" Background="{StaticResource HeroGradient}" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="24,22" Margin="0,0,0,16">
+            <StackPanel>
+              <TextBlock Text="Prêt à jouer ensemble ?" FontSize="26" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,6,0,0"
+                         Text="Vérifie les quatre voyants ci-dessous, puis lance la partie : le launcher s'occupe du mod et de la liaison."/>
+            </StackPanel>
+          </Border>
           <UniformGrid Columns="2">
-            <Border Style="{StaticResource CardBorder}" Margin="0,0,6,12">
-              <StackPanel><TextBlock Style="{StaticResource H2}" Text="Jeu"/><TextBlock x:Name="HomeGame" Style="{StaticResource Muted}"/></StackPanel>
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,7,14">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE7FC;" FontSize="22" Margin="0,0,14,0" VerticalAlignment="Top"/>
+                <StackPanel><TextBlock Style="{StaticResource H2}" Text="Jeu"/><TextBlock x:Name="HomeGame" Style="{StaticResource Muted}"/></StackPanel>
+              </DockPanel>
             </Border>
-            <Border Style="{StaticResource CardBorder}" Margin="6,0,0,12">
-              <StackPanel><TextBlock Style="{StaticResource H2}" Text="Mod S4Together"/><TextBlock x:Name="HomeMod" Style="{StaticResource Muted}"/></StackPanel>
+            <Border Style="{StaticResource CardBorder}" Margin="7,0,0,14">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xEA86;" FontSize="22" Margin="0,0,14,0" VerticalAlignment="Top"/>
+                <StackPanel><TextBlock Style="{StaticResource H2}" Text="Mod S4Together"/><TextBlock x:Name="HomeMod" Style="{StaticResource Muted}"/></StackPanel>
+              </DockPanel>
             </Border>
-            <Border Style="{StaticResource CardBorder}" Margin="0,0,6,12">
-              <StackPanel><TextBlock Style="{StaticResource H2}" Text="Serveur"/><TextBlock x:Name="HomeServer" Style="{StaticResource Muted}"/></StackPanel>
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,7,14">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE968;" FontSize="22" Margin="0,0,14,0" VerticalAlignment="Top"/>
+                <StackPanel><TextBlock Style="{StaticResource H2}" Text="Serveur"/><TextBlock x:Name="HomeServer" Style="{StaticResource Muted}"/></StackPanel>
+              </DockPanel>
             </Border>
-            <Border Style="{StaticResource CardBorder}" Margin="6,0,0,12">
-              <StackPanel><TextBlock Style="{StaticResource H2}" Text="Liaison avec le jeu"/><TextBlock x:Name="HomeBridge" Style="{StaticResource Muted}"/></StackPanel>
+            <Border Style="{StaticResource CardBorder}" Margin="7,0,0,14">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE71B;" FontSize="22" Margin="0,0,14,0" VerticalAlignment="Top"/>
+                <StackPanel><TextBlock Style="{StaticResource H2}" Text="Liaison avec le jeu"/><TextBlock x:Name="HomeBridge" Style="{StaticResource Muted}"/></StackPanel>
+              </DockPanel>
             </Border>
           </UniformGrid>
           <Border x:Name="SeasonCard" Style="{StaticResource CardBorder}" Margin="0,0,0,12" Visibility="Collapsed">
@@ -403,8 +433,11 @@
       </StackPanel>
     </Grid>
 
-    <Border Grid.Column="1" Grid.Row="1" Background="{StaticResource Panel}" Padding="28,8">
-      <TextBlock x:Name="StatusBar" Style="{StaticResource Muted}" FontSize="12"/>
+    <Border Grid.Column="1" Grid.Row="1" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="28,8">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE946;" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,0,8,0"/>
+        <TextBlock x:Name="StatusBar" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+      </DockPanel>
     </Border>
   </Grid>
 </Window>
