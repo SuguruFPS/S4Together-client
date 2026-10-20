@@ -1,4 +1,10 @@
-S4Together 0.1.70-game-test — mod de test, launcher 0.1.70 (serveur recommandé 0.1.46). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.71-game-test — mod de test, launcher 0.1.71 (serveur recommandé 0.1.47). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.71 — copies, discussions et vitesse
+Les copies des autres joueurs n'agissent plus toutes seules sur ton terrain : elles font seulement ce que fait le vrai joueur.
+Quand un joueur discute avec ton Sim ou avec la copie d'un autre joueur, la discussion est rejouée sur sa copie.
+Pendant une visite, cliquer x2 ou x3 (même en boucle) ne fait plus sortir de la vitesse normale.
+Seul sur un terrain sans propriétaire présent (commerce, terrain public), tu choisis librement ta vitesse.
 
 NOUVEAUTES 0.1.70 — tenues et actions pendant les visites
 Quand tu changes de tenue, ta copie chez les autres joueurs met la même tenue (environ 10 secondes).

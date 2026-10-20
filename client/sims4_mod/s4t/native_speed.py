@@ -12,12 +12,42 @@ def game_context():
     return services.game_clock_service(), GameSpeedChangeSource.GAMEPLAY, ClockSpeedMode
 
 
+_HOLDERS = []
+
+
+def guard_set_speed(original):
+    """Un clic de vitesse (set_clock_speed) vide la pile GAMEPLAY : reprendre aussitot notre maintien."""
+    def set_clock_speed(clock, *args, **kwargs):
+        result = original(clock, *args, **kwargs)
+        for holder in tuple(_HOLDERS):
+            try:
+                holder.reassert(clock)
+            except Exception as error:
+                holder.failures += 1
+                holder.last_error = type(error).__name__
+        return result
+    setattr(set_clock_speed, 's4t_original', original)
+    return set_clock_speed
+
+
+def install_guard(cls):
+    original = cls.__dict__.get('set_clock_speed')
+    if not callable(original) or getattr(original, 's4t_original', None) is not None:
+        return False
+    cls.set_clock_speed = guard_set_speed(original)
+    return True
+
+
 class GameSpeed:
     def __init__(self, context=game_context):
         self.context = context
         self.clock = self.source = self.request = self.rate = None
         self.active = False
         self.generation = 0
+        self.failures = 0
+        self.last_error = None
+        if self not in _HOLDERS:
+            _HOLDERS.append(self)
 
     def read(self):
         clock, _, _ = self.context()
@@ -41,21 +71,33 @@ class GameSpeed:
         clock, source, mode = self.context()
         if clock is not self.clock or rate != self.rate:
             self.release()
-        controller = clock.speed_controllers[source]
-        if self.request is None or not any(item is self.request for item in controller):
+        for cls in type(clock).__mro__:
+            if 'set_clock_speed' in cls.__dict__:
+                install_guard(cls)
+                break
+        if self.request is None:
             self.active = True
             generation = self.generation
             self.clock, self.source, self.rate = clock, source, rate
             self.request = clock.push_speed(mode(rate), source=source, reason='S4TogetherTerrainSpeed',
                                             validity_check=lambda: self.active and self.generation == generation, immediate=True)
-        elif controller[-1] is not self.request:
-            # Un clic visiteur ne peut supplanter le proprietaire ; ne retirer aucun autre mod.
-            for index, item in enumerate(controller):
-                if item is self.request:
-                    del controller[index]
-                    break
-            controller.append(self.request)
-            clock._update_speed(immediate=True)
+        else:
+            self.reassert(clock)
+
+    def reassert(self, clock):
+        """Remettre notre requete au sommet (clic visiteur, pile videe) ; ne retirer aucun autre mod."""
+        if not self.active or self.request is None or clock is not self.clock:
+            return False
+        controller = clock.speed_controllers[self.source]
+        if controller and controller[-1] is self.request:
+            return False
+        for index, item in enumerate(controller):
+            if item is self.request:
+                del controller[index]
+                break
+        controller.append(self.request)
+        clock._update_speed(immediate=True)
+        return True
 
 
 class NativeSpeedSync:

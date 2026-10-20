@@ -32,6 +32,7 @@ ROUTE_RETRY_TICKS = 5
 MAX_ROUTE_TRIES = 3         # Trajet refusé ou bloqué : arrêt, jamais de téléportation de secours.
 ROUTE_RECOVERY_TICKS = 60   # Reprendre après une obstruction temporaire sans rafale native.
 SPAWN_RETRY_TICKS = 30
+SETTLE_TICKS = 3            # Arrêt périodique des actions autonomes d'une copie immobile.
 MAX_ATTEMPTS = 3
 GRACE_TICKS = 5             # Lien perdu : délai avant de retirer les instances.
 STALE_TICKS = 30
@@ -162,12 +163,15 @@ def stale_interactions(sim):
     """Actions visibles de la copie qui ne viennent pas du propriétaire : restaurées de la sauvegarde (fauteuil,
     télé) ou restées d'avant. Exclut le trajet et le rejeu S4T, les actions qui finissent et les conversations
     (un autre joueur peut parler à la copie)."""
-    ours = {id(getattr(sim, '_s4t_motion_route', None)), id(getattr(sim, '_s4t_replay', None))}
+    replay = getattr(sim, '_s4t_replay', None)
+    ours = {id(getattr(sim, '_s4t_motion_route', None)), id(replay)}
+    # Les suites d'une action rejouée (allumer l'ordinateur puis surfer) gardent son group_id.
+    group = getattr(replay, 'group_id', None) if replay is not None else None
     found, seen = [], set()
     for source in (getattr(sim, 'si_state', None), getattr(sim, 'queue', None)):
         for interaction in list(source or ()):
             key = id(interaction)
-            if key in seen or key in ours:
+            if key in seen or key in ours or (group is not None and getattr(interaction, 'group_id', None) == group):
                 continue
             seen.add(key)
             if (getattr(interaction, 'is_finishing', False) or getattr(interaction, 'visible', False) is not True
@@ -220,6 +224,7 @@ class RemoteMotion:
         self.retry = {}
         self.releases = {}
         self.moves = {}
+        self.sweeps = {}         # playerId -> ticks avant le prochain arrêt des actions autonomes de la copie.
         self.unlevel = set()     # Joueurs dont la pose n'a pas d'étage : ni spawn ni trajet.
         self.mapping = {}        # (playerId, simId distant) -> (foyer local, Sim local)
         self.represented = {}    # Joueur -> (foyer local, Sim distant, empreinte appliquée prouvée).
@@ -642,7 +647,7 @@ class RemoteMotion:
 
     def _forget(self, player):
         self.represented.pop(player, None)
-        for store in (self.owned, self.releases, self.moves, self.retry):
+        for store in (self.owned, self.releases, self.moves, self.retry, self.sweeps):
             store.pop(player, None)
         self.unlevel.discard(player)
         self.foreign.discard(player)
@@ -686,6 +691,7 @@ class RemoteMotion:
                 self._reject('large_gap')
                 log('remote_motion', 'large_gap')
             if action != 'route':
+                self._sweep(player, household, current['instance'])
                 continue
             try:
                 cancelled = self.adapter.route(player, household, pose, current['instance'])
@@ -695,6 +701,24 @@ class RemoteMotion:
             except Exception as error:
                 self._reject('route:' + type(error).__name__)
             return
+
+    def _sweep(self, player, household, instance):
+        """Propriétaire immobile : la copie ne doit rien faire de son propre chef (ordinateur, frigo). Les actions
+        hors trajet, rejeu et conversation sont arrêtées toutes les SETTLE_TICKS ; erreur journalisée, jamais levée."""
+        left = self.sweeps.get(player, SETTLE_TICKS) - 1
+        if left > 0:
+            self.sweeps[player] = left
+            return
+        self.sweeps[player] = SETTLE_TICKS
+        clear = getattr(self.adapter, 'settle', None)
+        if clear is None:
+            return
+        try:
+            cancelled = clear(player, household, instance)
+            if type(cancelled) is int:
+                self.settled += cancelled
+        except Exception as error:
+            self._reject('sweep:' + type(error).__name__)
 
     def _adopt(self, player, household, current):
         """Instance du clone créée par le jeu (le clone habite ce terrain, rechargement de zone) : _clone a déjà
