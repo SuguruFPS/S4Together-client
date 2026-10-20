@@ -87,7 +87,9 @@ class ConfigStore:
             current = {}
         entries = {k: v for k, v in current.items() if isinstance(k, str) and isinstance(v, str)}
         entries.pop(key, None)
-        entries[key] = value
+        # None retire la clé (marqueur oublié).
+        if value is not None:
+            entries[key] = value
         # Borne : les 64 entrées les plus récentes (fichier < 32 Kio).
         entries = dict(list(entries.items())[-64:])
         self.root.mkdir(parents=True, exist_ok=True)
@@ -115,6 +117,17 @@ class ConfigStore:
 
     def mark_character(self, key, value):
         self._mark('character-applied.json', key, value)
+
+    def calendar_links(self):
+        """Fêtes communes déjà posées dans ce calendrier : « personnage/identifiant serveur » -> id local."""
+        try:
+            current = self._read('calendar-links.json')
+        except ValueError:
+            return {}
+        return {k: v for k, v in current.items() if isinstance(k, str) and isinstance(v, str)}
+
+    def link_calendar(self, entry_id, value):
+        self._mark('calendar-links.json', entry_id, value)
 
     @staticmethod
     def _identity_name(endpoint):

@@ -38,6 +38,9 @@ def auto_link():
         from .play_intent import PlayIntentRunner
         from .season_sync import SeasonSync
         from .season_phase import SeasonPhaseSync
+        from .weather_sync import WeatherSync
+        from .relationship_sync import RelationshipSync
+        from .calendar_sync import CalendarSync
         from .character_sync import CharacterSync
         from .presence_sync import PresenceSync
         from .home_lots import HomeLotSync
@@ -78,8 +81,9 @@ def auto_link():
                          appearance_sync=appearance, remote_households=households,
                          remote_motion=motion, interaction_observer=interactions,
                          interaction_publisher=InteractionPublisher(peer_streams=lambda: dict(motion.streams)),
-                         terrain_factory=terrain_factory, offline_guard=OfflineGuard(), season_phase=SeasonPhaseSync(), native_probe=native_probe,
+                         terrain_factory=terrain_factory, offline_guard=OfflineGuard(), season_phase=SeasonPhaseSync(), weather_sync=WeatherSync(), native_probe=native_probe,
                          remote_actions=RemoteActions(motion),
+                         social_syncs=(RelationshipSync(), CalendarSync(store=ConfigStore())),
                          speed_sync=NativeSpeedSync(speed.read, speed.hold, speed.release))
     return _auto
 

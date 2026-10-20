@@ -182,7 +182,7 @@ class ConnectionManager:
                                 'game.join', 'game.state', 'game.leave', 'game.snapshot', 'game.appearance.publish', 'game.appearance.list', 'game.appearance.get', 'game.visibility.report',
                                 'game.interaction', 'game.speed.get', 'game.speed.set', 'terrain.publish', 'terrain.get', 'terrain.catalog',
                                 'property.claim', 'property.release', 'property.move',
-                                'business.claim', 'business.release'):
+                                'business.claim', 'business.release', 'relationship.set', 'calendar.set', 'calendar.remove'):
             raise ValueError('Commande mod non autorisée')
         if len(json.dumps(request).encode('utf-8')) > 65536:
             raise ValueError('Requête trop grande')

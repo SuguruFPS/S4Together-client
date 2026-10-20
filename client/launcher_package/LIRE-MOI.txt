@@ -1,4 +1,9 @@
-S4Together 0.1.71-game-test — mod de test, launcher 0.1.71 (serveur recommandé 0.1.47). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.72-game-test — mod de test, launcher 0.1.72 (serveur recommandé 0.1.48). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.72 — relations, météo et calendrier communs
+L'amitié et la romance entre ton Sim et la copie d'un autre joueur sont les mêmes chez vous deux, même si vous interagissez en même temps.
+Avec le pack Saisons : tous les joueurs ont la même météo chaque jour du serveur. L'heure du jour reste propre à chaque partie.
+Avec le pack Saisons : une fête que tu crées dans le calendrier apparaît chez les autres joueurs. Seul son créateur peut la modifier ou la supprimer.
 
 NOUVEAUTES 0.1.71 — copies, discussions et vitesse
 Les copies des autres joueurs n'agissent plus toutes seules sur ton terrain : elles font seulement ce que fait le vrai joueur.

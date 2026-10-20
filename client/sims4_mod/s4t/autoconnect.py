@@ -30,7 +30,8 @@ class AutoLink:
                  character_sync=None, presence_sync=None, home_sync=None, appearance_sync=None, remote_households=None,
                  remote_motion=None, interaction_observer=None, interaction_publisher=None,
                  terrain_sync=None, terrain_events=None, terrain_factory=None, offline_guard=None, season_phase=None, native_probe=None,
-                 disconnect_guard=None, remote_actions=None, speed_sync=None, copy_lock=None, business_sync=None):
+                 disconnect_guard=None, remote_actions=None, speed_sync=None, copy_lock=None, business_sync=None,
+                 weather_sync=None, social_syncs=()):
         self.runtime = runtime
         self.offline_guard = offline_guard
         self.interaction_observer = interaction_observer
@@ -51,6 +52,9 @@ class AutoLink:
         self.play_intent = play_intent
         self.season_sync = season_sync
         self.season_phase = season_phase
+        self.weather_sync = weather_sync
+        # Synchros « monde social » (relations, calendrier) : on_messages(manager, messages), tick(manager, personnage).
+        self.social_syncs = tuple(social_syncs)
         self.character_sync = character_sync
         self.scheduler = scheduler
         self.cancel = cancel
@@ -152,8 +156,20 @@ class AutoLink:
             self.season_sync.update(world_id, season)
             if self.season_phase is not None:
                 self.season_phase.update(season)
+            if self.weather_sync is not None:
+                self.weather_sync.update(season)
         except Exception as error:
             log('season', type(error).__name__)
+
+    def _social(self, manager, status, loaded):
+        sync = self.character_sync
+        bound = (status.get('authenticated') and loaded and getattr(sync, 'state', None) == 'bound')
+        character = getattr(sync, 'character', None) if bound else None
+        for social in self.social_syncs:
+            try:
+                social.tick(manager, character)
+            except Exception as error:
+                log(type(social).__name__, type(error).__name__)
 
     def _character(self, manager, status, loaded):
         if self.character_sync is None:
@@ -517,7 +533,8 @@ class AutoLink:
                            ('business', self.business_sync),
                            ('appearance', self.appearance_sync), ('remote_motion', self.remote_motion),
                            ('interaction_publisher', self.interaction_publisher), ('terrain', self.terrain_sync),
-                           ('native_speed', self.speed_sync)):
+                           ('native_speed', self.speed_sync)) + tuple(
+                (type(s).__name__, s) for s in self.social_syncs):
             if sync is None:
                 continue
             try:
@@ -619,6 +636,7 @@ class AutoLink:
                     self.speed_sync.tick(manager, context)
                 except Exception as error:
                     log('native_speed', type(error).__name__)
+            self._social(manager, status, observation.get('loaded'))
             self._native_probe(status, observation.get('loaded'))
             try:
                 self._terrain(manager, status, observation.get('loaded'))
