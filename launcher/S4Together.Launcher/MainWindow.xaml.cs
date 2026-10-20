@@ -69,6 +69,7 @@ public partial class MainWindow : Window
         NameBox.Text = settings.PlayerName;
         RememberBox.IsChecked = settings.RememberPassword;
         TrayBox.IsChecked = settings.MinimizeToTray;
+        CloseWarnBox.IsChecked = settings.ConfirmCloseWhileConnected;
         InitializeDirectory();
         FriendList.ItemsSource = settings.Favorites.ToList();
         LoadPackage();
@@ -1177,6 +1178,12 @@ public partial class MainWindow : Window
         SaveSettings();
     }
 
+    void CloseWarnBox_Click(object sender, RoutedEventArgs e)
+    {
+        settings.ConfirmCloseWhileConnected = CloseWarnBox.IsChecked == true;
+        SaveSettings();
+    }
+
     // ---------- Jouer ----------
 
     async void Play_Click(object sender, RoutedEventArgs e)
@@ -1419,22 +1426,35 @@ public partial class MainWindow : Window
     void OnClosing(object? sender, CancelEventArgs e)
     {
         if (quitting) return;
-        if (link is not null && settings.MinimizeToTray)
+        e.Cancel = true;
+        var action = CloseBehavior.Decide(link is not null, settings.ConfirmCloseWhileConnected, settings.MinimizeToTray);
+        var warned = false;
+        if (action == CloseAction.Ask)
         {
-            e.Cancel = true;
+            var answer = CloseWarningDialog.Ask(this);
+            if (answer is null) return;
+            CloseBehavior.Remember(settings, answer.Choice, answer.DontAskAgain);
+            if (answer.DontAskAgain) { TrayBox.IsChecked = settings.MinimizeToTray; CloseWarnBox.IsChecked = false; SaveSettings(); }
+            action = answer.Choice == CloseChoice.HideToTray ? CloseAction.HideToTray : CloseAction.Quit;
+            warned = true;
+        }
+        if (action == CloseAction.HideToTray)
+        {
             HideToTray("Toujours connecté. Clic droit sur l'icône > Quitter pour fermer.");
             return;
         }
-        e.Cancel = true;
         // Différé : Close() rappelé pendant Closing lève InvalidOperationException (journal 0.1.5).
-        Dispatcher.BeginInvoke(Quit);
+        Dispatcher.BeginInvoke(() => Quit(warned));
     }
 
-    async void Quit()
+    void Quit() => Quit(false);
+
+    /// <summary>alreadyWarned : l'avertissement de fermeture vient d'être accepté, ne pas redemander.</summary>
+    async void Quit(bool alreadyWarned)
     {
         if (quitting || reviewingServerMods) return;
         if (busy) { Status("Une opération est en cours. Attends sa fin avant de quitter."); return; }
-        if (link is not null && GameLocator.IsGameRunning()
+        if (!alreadyWarned && link is not null && GameLocator.IsGameRunning()
             && !Confirm("Le jeu est ouvert : quitter le launcher coupera sa connexion au serveur. Quitter quand même ?")) return;
         quitting = true;
         SaveSettings();

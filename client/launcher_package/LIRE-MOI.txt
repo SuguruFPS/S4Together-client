@@ -1,4 +1,9 @@
-S4Together 0.1.72-game-test — mod de test, launcher 0.1.72 (serveur recommandé 0.1.48). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.73-game-test — mod de test, launcher 0.1.73 (serveur recommandé 0.1.48). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.73 — avertissement à la fermeture
+Si tu fermes le launcher pendant que tu es connecté, un message te prévient que cela te déconnecte du serveur.
+Tu peux réduire le launcher dans les icônes cachées pour rester connecté, ou fermer quand même.
+Coche « Ne plus afficher ce message » pour garder ton choix. Tu peux réactiver le message dans les paramètres.
 
 NOUVEAUTES 0.1.72 — relations, météo et calendrier communs
 L'amitié et la romance entre ton Sim et la copie d'un autre joueur sont les mêmes chez vous deux, même si vous interagissez en même temps.

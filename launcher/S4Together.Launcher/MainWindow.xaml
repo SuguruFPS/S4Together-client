@@ -356,6 +356,7 @@
             </StackPanel>
           </Border>
           <CheckBox x:Name="TrayBox" Content="Réduire dans la zone de notification pendant le jeu" Click="TrayBox_Click"/>
+          <CheckBox x:Name="CloseWarnBox" Content="Prévenir avant de fermer quand je suis connecté" Click="CloseWarnBox_Click" Margin="0,6,0,0"/>
         </StackPanel>
       </ScrollViewer>
 

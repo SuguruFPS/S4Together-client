@@ -27,6 +27,8 @@ public sealed class LauncherSettings
     public bool RememberPassword { get; set; }
     public string ProtectedPassword { get; set; } = "";
     public bool MinimizeToTray { get; set; } = true;
+    /// <summary>Avertir avant de fermer quand on est connecté (désactivable par « Ne plus afficher »).</summary>
+    public bool ConfirmCloseWhileConnected { get; set; } = true;
     public List<string> Dlcs { get; set; } = [];
     public List<string> Favorites { get; set; } = [];
     public Dictionary<string, StoredIdentity> Identities { get; set; } = [];
