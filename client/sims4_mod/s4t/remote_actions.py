@@ -9,6 +9,13 @@ from collections import OrderedDict
 from .journal import log
 
 ENDING = frozenset(('finished', 'user_canceled', 'canceled', 'failed', 'reset', 'unknown', 'unobserved'))
+# 0.1.70 : toute action non sociale du propriétaire (objet, lui-même, sol, sans cible) est rejouée sur sa copie.
+TARGET_KINDS = frozenset(('object', 'self', 'none', 'terrain'))
+# Jamais rejoué : effets hors de l'apparence (argent, foyer, voyage, mort, suppression, triche).
+# Sous-chaînes choisies pour ne pas toucher les actions de compétence ('kill' bloquerait 'skill').
+FORBIDDEN_NAMES = ('travel', 'purchase', 'buy', 'sell', 'delete', 'death', 'teleport', 'cheat', 'debug',
+                   'career', 'adopt', 'household', 'moveout', 'move_out', 'paybill', 'pay_bill', 'phone')
+SEAT_TOLERANCE, PLACEMENT_TOLERANCE = 1.5, .02
 
 
 class RemoteActions:
@@ -74,7 +81,7 @@ class RemoteActions:
                 continue
             # Autonome aussi : le Sim du propriétaire s'assoit souvent seul ; sans cela la copie garde l'ancienne place.
             if (event['state'] != 'running' or event['origin'] not in ('user', 'autonomy') or event['visible'] is not True
-                    or event['target']['kind'] != 'object'):
+                    or event['target']['kind'] not in TARGET_KINDS):
                 continue
             if self.active.get(player, {}).get('key') != key:
                 for old in list(self.pending):
@@ -116,7 +123,7 @@ class RemoteActions:
 
     def status(self):
         return {'started': self.started, 'ended': self.ended, 'refused': self.refused,
-                'active': len(self.active), 'pending': len(self.pending), 'scope': 'seated_and_tv_object_only',
+                'active': len(self.active), 'pending': len(self.pending), 'scope': 'non_social_object_self_terrain',
                 'gameReadiness': 'NOT_TESTED_GAME'}
 
 
@@ -125,31 +132,79 @@ class GameActions:
         self.motion = motion
 
     def start(self, actor, event):
-        import math
         import services
         import sims4.resources
         from interactions.context import InteractionContext
         from interactions.priority import Priority
         player, household, instance, pose = actor
         sim = self.motion._exact(player, household, instance)
-        # Le tuning reçu n'est jamais exécuté librement : posture assise ou classe TV native.
         affordance = services.get_instance_manager(sims4.resources.Types.INTERACTION).get(int(event['affordanceId']))
+        if affordance is None or not self._allowed(affordance):
+            return None
+        kind = event['target']['kind']
+        pick = None
+        if kind == 'object':
+            target = self._object(services, affordance, event['target'], pose)
+            if target is None:
+                return None
+        elif kind == 'self':
+            target = sim
+        elif kind == 'none':
+            target = None
+        elif kind == 'terrain':
+            target, pick = self._terrain(pose)
+        else:
+            return None
+        if pick is None:
+            context = InteractionContext(sim, InteractionContext.SOURCE_SCRIPT_WITH_USER_INTENT, Priority.High)
+        else:
+            context = InteractionContext(sim, InteractionContext.SOURCE_SCRIPT_WITH_USER_INTENT, Priority.High, pick=pick)
+        result = sim.push_super_affordance(affordance, target, context)
+        interaction = getattr(result, 'interaction', None) if result else None
+        if interaction is not None:
+            sim._s4t_replay = interaction  # Épargné par remote_motion.settle.
+        return interaction
+
+    @staticmethod
+    def _allowed(affordance):
+        """Refus : social (jamais d'action imposée à un autre Sim), triche/débogage, classes à effet hors visuel."""
+        if getattr(affordance, 'is_social', False) is True or getattr(affordance, 'cheat', False) is True:
+            return False
+        if getattr(affordance, 'debug', False) is True:
+            return False
+        if isinstance(affordance, type):
+            try:
+                from interactions.social.social_super_interaction import SocialSuperInteraction
+                if issubclass(affordance, SocialSuperInteraction):
+                    return False
+            except ImportError:
+                return False
+        name = getattr(affordance, '__name__', '').lower()
+        return bool(name) and not any(word in name for word in FORBIDDEN_NAMES)
+
+    @staticmethod
+    def _terrain(pose):
+        """Point de sol à la position reçue du propriétaire, à son étage (même séquence que remote_motion.route)."""
+        import sims4.math
+        from objects.terrain import TerrainPoint
+        from server.pick_info import PickInfo, PickType
+        from .remote_motion import GameMotion
+        surface = GameMotion._surface(pose)
+        position = GameMotion._vector(pose)
+        target = TerrainPoint(sims4.math.Location(sims4.math.Transform(position), surface))
+        return target, PickInfo(pick_type=PickType.PICK_TERRAIN, target=target, location=position,
+                                routing_surface=surface)
+
+    def _object(self, services, affordance, target_info, pose):
+        """Objet unique du terrain actif. Siège : pose à 1,5 m sans ambiguïté ; autre action : position exacte."""
+        import math
         posture = getattr(affordance, 'provided_posture_type', None)
         seated = posture is not None and getattr(posture, 'name', None) == 'sit'
-        television = False
-        if not seated and isinstance(affordance, type):
-            try:
-                from objects.electronics.television import WatchSuperInteraction
-                television = issubclass(affordance, WatchSuperInteraction)
-            except ImportError:
-                pass
-        target_info = event['target']
         placement = target_info.get('placement')
-        if (not seated and not television) or (television and placement is None):
+        if not seated and placement is None:
             return None
         if placement is not None and not self._valid_placement(placement):
             return None
-        context = InteractionContext(sim, InteractionContext.SOURCE_SCRIPT_WITH_USER_INTENT, Priority.High)
         candidates, count = [], 0
         for obj in services.object_manager().valid_objects():
             count += 1
@@ -168,17 +223,13 @@ class GameActions:
                 pos = target.position
                 origin = {name: placement[name] / 1000. for name in ('x', 'y', 'z')} if placement is not None else pose['position']
                 distance = math.hypot(pos.x - origin['x'], pos.z - origin['z'])
-                tolerance = .02 if placement is not None else 1.5
+                tolerance = PLACEMENT_TOLERANCE if placement is not None else SEAT_TOLERANCE
                 if distance <= tolerance and abs(pos.y - origin['y']) <= tolerance:
                     candidates.append((distance, target))
         candidates.sort(key=lambda item: item[0])
         if not candidates or len(candidates) > 1 and (placement is not None or candidates[1][0] - candidates[0][0] < .25):
-            return None  # Siège absent ou ambigu : aucun choix arbitraire.
-        result = sim.push_super_affordance(affordance, candidates[0][1], context)
-        interaction = getattr(result, 'interaction', None) if result else None
-        if interaction is not None:
-            sim._s4t_replay = interaction  # Épargné par remote_motion.settle.
-        return interaction
+            return None  # Objet absent ou ambigu : aucun choix arbitraire.
+        return candidates[0][1]
 
     @staticmethod
     def _valid_placement(value):

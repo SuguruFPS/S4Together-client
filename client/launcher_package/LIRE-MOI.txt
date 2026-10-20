@@ -1,4 +1,8 @@
-S4Together 0.1.69-game-test — mod de test, launcher 0.1.69 (serveur recommandé 0.1.46). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.70-game-test — mod de test, launcher 0.1.70 (serveur recommandé 0.1.46). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.70 — tenues et actions pendant les visites
+Quand tu changes de tenue, ta copie chez les autres joueurs met la même tenue (environ 10 secondes).
+Les actions de ton Sim sur un objet, sur lui-même ou au sol (dormir par terre, s'asseoir, utiliser un objet) sont rejouées sur ta copie. Les discussions entre Sims ne le sont pas encore.
 
 NOUVEAUTES 0.1.69 — vitesse pendant les visites
 Quand un autre joueur est sur ton terrain, le jeu reste en vitesse normale (x1) pour tout le monde. Dès qu'il repart, tu peux remettre x2 ou x3.

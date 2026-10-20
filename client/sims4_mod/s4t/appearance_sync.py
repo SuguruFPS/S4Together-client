@@ -12,7 +12,8 @@ from .journal import log
 from .remote_profile import build_profile, filter_simdata, validate_profile
 
 EVENT = 'game.appearance'
-EXPORT_TICKS = 60            # Nouveau relevé de mon apparence (CAS, changement de tenue) une fois par minute.
+EXPORT_TICKS = 60            # Nouveau relevé de mon apparence (CAS) une fois par minute.
+OUTFIT_MIN_TICKS = 11        # Changement de tenue : relevé anticipé, jamais sous la limite serveur de 10 s.
 RETRY_TICKS = 30
 MAX_TRANSPORT_BYTES = 44000  # Borne serveur : l'événement tient dans une trame WebSocket de 64 Kio.
 MAX_PLAYERS = 16
@@ -35,11 +36,26 @@ def game_export(sim_id):
         return None
 
 
+def game_outfit(sim_id):
+    """(catégorie, index) de la tenue portée, ou None. Lecture seule, peu coûteuse : sondée à chaque tick."""
+    try:
+        import services
+        sim_info = services.sim_info_manager().get(int(sim_id))
+        if sim_info is None:
+            return None
+        category, index = sim_info.get_current_outfit()
+        return int(category), int(index)
+    except Exception as error:
+        log('appearance_outfit', type(error).__name__)
+        return None
+
+
 class AppearanceSync:
     """Appelée par AutoLink une fois le personnage lié. `remote` : {playerId: {'simId', 'sha256', 'data'}} validés."""
 
-    def __init__(self, export=game_export, new_id=lambda: str(uuid.uuid4())):
+    def __init__(self, export=game_export, new_id=lambda: str(uuid.uuid4()), outfit=game_outfit):
         self.export = export
+        self.outfit = outfit
         self.new_id = new_id
         self.session = None
         self.reset()
@@ -54,6 +70,8 @@ class AppearanceSync:
         self.published = None
         self.profile = None
         self.export_in = 0
+        self.since_export = 0
+        self.worn = None
         self.cooldown = 0
         self.wanted = {}
         self.failed = set()
@@ -83,8 +101,17 @@ class AppearanceSync:
         if not self.listed:
             return self._send(manager, 'game.appearance.list', {})
         if active_sim_id:
+            self.since_export += 1
+            worn = (active_sim_id, self.outfit(active_sim_id))
+            if worn[1] is not None and worn != self.worn and self.since_export >= OUTFIT_MIN_TICKS:
+                # Tenue changée : relevé tout de suite, pas au prochain relevé minute.
+                self.worn = worn
+                self.export_in = 0
             if self.export_in <= 0:
                 self.export_in = EXPORT_TICKS
+                self.since_export = 0
+                if worn[1] is not None:
+                    self.worn = worn
                 self.profile = self.export(active_sim_id)
             else:
                 self.export_in -= 1

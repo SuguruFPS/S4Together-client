@@ -84,6 +84,15 @@ def filter_simdata(data):
     return b''.join(kept)
 
 
+def current_outfit(data):
+    """(catégorie, index) de la tenue portée dans un profil validé ; (0, 0) si absents (défaut proto). ValueError sinon."""
+    values = {38: 0, 39: 0}
+    for number, wire, start, _ in scan(data):
+        if number in values and wire == VARINT:
+            values[number] = _varint(data, _varint(data, start)[1])[0]
+    return values[38], values[39]
+
+
 def check_appearance(data):
     """None si `data` ne contient que des champs d'apparence valides et tous les champs requis, sinon un code."""
     if not isinstance(data, bytes) or not 0 < len(data) <= MAX_BYTES:

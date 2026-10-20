@@ -46,12 +46,13 @@ def display_name(name):
     return name
 
 
-def plan(players, ghosts, homes, names=None):
+def plan(players, ghosts, homes, names=None, outfits=None):
     """Prochaine action, ou None. Python pur.
 
     players : {playerId: {'name', 'sha256', 'data'}} — apparences validées des autres joueurs.
     ghosts : {playerId: {'householdId', 'sha16', 'firstName', 'householdName', 'zoneId', 'instanced'}} — foyers S4T.
     homes : {playerId: {'zoneId', 'occupiedLocally'}} — maison résolue dans cette partie (home_lots).
+    outfits : {playerId: sha256} — apparence dont la tenue portée a déjà été appliquée au Sim présent.
     """
     # Le domicile d'une copie déjà enregistrée ne dépend pas d'une nouvelle
     # publication d'apparence en mémoire (absente après déconnexion/redémarrage).
@@ -64,8 +65,14 @@ def plan(players, ghosts, homes, names=None):
             if len(ghosts) >= MAX_GHOSTS:
                 continue
             return ('create', player_id, {'name': name, 'sha256': player['sha256'], 'data': player['data']})
-        if player is not None and ghost['sha16'] != player['sha256'][:16] and not ghost['instanced']:
-            return ('appearance', player_id, {'householdId': ghost['householdId'], 'sha256': player['sha256'],
+        if player is not None and ghost['sha16'] != player['sha256'][:16]:
+            if not ghost['instanced']:
+                return ('appearance', player_id, {'householdId': ghost['householdId'], 'sha256': player['sha256'],
+                                                  'data': player['data']})
+            # Sim présent sur le terrain : l'apparence complète attendra son départ, mais la tenue
+            # portée (pyjama, maillot, sport…) change tout de suite.
+            if ghost['sha16'] != PENDING and (outfits or {}).get(player_id) != player['sha256']:
+                return ('outfit', player_id, {'householdId': ghost['householdId'], 'sha256': player['sha256'],
                                               'data': player['data']})
         if ghost['sha16'] == PENDING:
             # Apparence jamais appliquée : ni renommage ni emménagement de ce clone.
@@ -120,6 +127,7 @@ class RemoteHouseholds:
         self.cooldown = 0
         self.last = None
         self.ghosts = {}
+        self.outfits = {}
 
     def reset(self):
         # Nouvelle zone : réessayer les déménagements avec une nouvelle lecture native.
@@ -131,6 +139,7 @@ class RemoteHouseholds:
                 self.failure_reasons.pop(player_id, None)
         self.cooldown = 0
         self.ghosts = {}
+        self.outfits = {}
         self.blocked_homes = {}
         if hasattr(self.adapter, 'clear_reservations'):
             self.adapter.clear_reservations()
@@ -169,7 +178,8 @@ class RemoteHouseholds:
         for pid in sorted(set(players).union(known_residents)):
             candidate = plan({pid: players[pid]} if pid in players else {},
                              self.ghosts, {pid: homes_by_player[pid]} if pid in homes_by_player else {},
-                             {pid: names[pid]} if pid in names else {})
+                             {pid: names[pid]} if pid in names else {},
+                             {pid: self.outfits[pid]} if pid in self.outfits else {})
             if candidate is None:
                 continue
             kind, _, args = candidate
@@ -186,6 +196,8 @@ class RemoteHouseholds:
         kind, player_id, args = action
         try:
             getattr(self.adapter, kind)(player_id, **args)
+            if kind == 'outfit':
+                self.outfits[player_id] = args['sha256']
             self.attempts.pop(player_id, None)
             self.failed_actions.pop(player_id, None)
             self.failure_reasons.pop(player_id, None)
@@ -194,12 +206,18 @@ class RemoteHouseholds:
         except Exception as error:
             self.attempts[player_id] = self.attempts.get(player_id, 0) + 1
             self.failed_actions[player_id] = key
-            known = {'occupied', 'zone', 'local_household', 'pending',
+            known = {'occupied', 'zone', 'local_household', 'pending', 'outfit_missing',
                      'residence_save_identity', 'residence_already_backed_up',
                      'residence_move_unconfirmed', 'residence_release_unconfirmed',
                      'residence_rollback_unconfirmed'}
             reason = str(error)
             self.failure_reasons[player_id] = reason if reason in known else type(error).__name__
+            if kind == 'outfit':
+                # Tenue absente localement (nouvelle tenue CAS) : elle arrivera avec l'apparence complète au
+                # départ du Sim. Un seul essai par empreinte : ni boucle ni blocage du renommage/emménagement.
+                self.outfits[player_id] = args['sha256']
+                self.attempts.pop(player_id, None)
+                self.failed_actions.pop(player_id, None)
             self.cooldown = RETRY_TICKS
             log('remote_household', kind + ':' + type(error).__name__)
             self.last = kind + ':' + type(error).__name__
@@ -459,6 +477,21 @@ class GameHouseholds:
         self._apply(sim_info, appearance)
         sim_info.save_sim()
         household.description = description(player_id, sha256)
+
+    def outfit(self, player_id, householdId, sha256, data):
+        """Tenue portée seulement, Sim présent compris ; l'empreinte du foyer reste l'ancienne pour l'apparence complète."""
+        from sims.outfits.outfit_enums import OutfitCategory
+        from .remote_profile import current_outfit
+        household = self._household(householdId)
+        sim_info = self._sim_info(household)
+        self._own(household, player_id)
+        category, index = current_outfit(data)
+        wanted = (OutfitCategory(category), index)
+        if not sim_info.has_outfit(wanted):
+            # Tenue créée depuis la dernière apparence complète : appliquée avec elle au départ du Sim.
+            raise LookupError('outfit_missing')
+        if sim_info.get_current_outfit() != wanted:
+            sim_info.set_current_outfit(wanted)
 
     def rename(self, player_id, householdId, name):
         household = self._household(householdId)
