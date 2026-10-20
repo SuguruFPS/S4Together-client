@@ -67,6 +67,7 @@ public partial class MainWindow : Window
         HostBox.Text = settings.ServerHost;
         PortBox.Text = settings.ServerPort;
         NameBox.Text = settings.PlayerName;
+        SettingsNameBox.Text = settings.PlayerName;
         RememberBox.IsChecked = settings.RememberPassword;
         TrayBox.IsChecked = settings.MinimizeToTray;
         CloseWarnBox.IsChecked = settings.ConfirmCloseWhileConnected;
@@ -80,7 +81,7 @@ public partial class MainWindow : Window
         StartSaveBackups();
         Closing += OnClosing;
         RefreshAll();
-        NavTo("PageServer");
+        NavTo("PageHome");
     }
 
     // ---------- Navigation et état général ----------
@@ -88,7 +89,7 @@ public partial class MainWindow : Window
     void Nav_Checked(object sender, RoutedEventArgs e)
     {
         if (sender is not RadioButton { Tag: string target } || !IsInitialized) return;
-        foreach (var page in new FrameworkElement[] { PageHome, PageServer, PageSim, PageCommunity, PageSettings, PageGame, PageDiag, PageAdmin })
+        foreach (var page in new FrameworkElement[] { PageHome, PageServer, PageSim, PageCommunity, PageSettings, PageHost, PageGame, PageDiag, PageAdmin })
             page.Visibility = page.Name == target ? Visibility.Visible : Visibility.Collapsed;
         if (target == "PageHome") RefreshAll();
         if (target == "PageSim" && link is not null && roster is null && !loadingCharacters) _ = LoadCharactersAsync();
@@ -174,6 +175,7 @@ public partial class MainWindow : Window
             : KeepMoney.IsChecked == true ? "L'argent du foyer copié sera conservé." : roster is { } moneyRoster ? $"Nouveau départ : {moneyRoster.StartingMoney:N0} §, sans ta maison solo." : "Nouveau départ : fonds du serveur, sans ta maison solo.";
         RefreshGameStartGuide();
         RefreshCharactersButton.IsEnabled = link is not null && !loadingCharacters;
+        UpdateShell();
     }
 
     static string PacksLabel(IReadOnlyList<string> packs) =>
@@ -528,6 +530,7 @@ public partial class MainWindow : Window
             .Select(p => new Choice(p["playerId"]?.GetValue<string>() ?? "", p["name"]?.GetValue<string>() ?? "?")).ToList();
         PlayerList.ItemsSource = list;
         AdminPlayers.ItemsSource = list.Where(p => p.Id != link?.PlayerId).ToList();
+        UpdateFriends();
     }
 
     // ---------- Admin (droits lus sur le serveur, jamais déduits localement) ----------
@@ -1041,6 +1044,7 @@ public partial class MainWindow : Window
         settings.Favorites.Add(player.Label);
         FriendList.ItemsSource = settings.Favorites.ToList();
         SaveSettings();
+        UpdateFriends();
     }
 
     void RemoveFriend_Click(object sender, RoutedEventArgs e)
@@ -1049,6 +1053,7 @@ public partial class MainWindow : Window
         settings.Favorites.Remove(friend);
         FriendList.ItemsSource = settings.Favorites.ToList();
         SaveSettings();
+        UpdateFriends();
     }
 
     // ---------- Jeu et mod ----------

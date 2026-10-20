@@ -10,7 +10,7 @@
     <AssemblyName>S4Together</AssemblyName>
     <RootNamespace>S4Together.Launcher</RootNamespace>
     <Product>S4Together Launcher</Product>
-    <Version>0.1.74</Version>
+    <Version>0.1.75</Version>
     <!-- Le ZIP distribue un seul exe : les DLL natives WPF doivent être incluses aussi. -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -21,6 +21,10 @@
     <!-- WinForms seulement pour l'icône de la zone de notification : pas d'using global (conflits avec WPF). -->
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Illustration originale de l'accueil (maquette launcher-ea.html). -->
+    <Resource Include="Assets\hero.png" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\S4Together.Launcher.Core\S4Together.Launcher.Core.csproj" />

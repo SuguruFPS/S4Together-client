@@ -68,6 +68,7 @@ class TerrainApplier:
         self.place_parent = place_parent
         self.thread_id = threading.get_ident() if thread_id is None else thread_id
         self.last = None
+        self.no_slot = 0
 
     def _target(self, zone_id):
         """Foyer propriétaire du terrain chargé si l'écriture y est permise, sinon None."""
@@ -96,6 +97,7 @@ class TerrainApplier:
             return False
         targets = self._targets(plan['remove'])
         made, skipped, missing = [], 0, 0
+        self.no_slot = 0
         for row in sorted(plan['create'], key=lambda value: value[7]):
             if row[7] == 1 and self.place_parent is None:
                 skipped += 1
@@ -108,14 +110,17 @@ class TerrainApplier:
                 continue
             if item is False:
                 self._destroy(made)  # Aucun meuble existant retiré avant réussite des remplacements.
-                self.last = {'created': 0, 'removed': 0, 'skipped': skipped + 1}
+                self.last = {'created': 0, 'removed': 0, 'skipped': skipped + 1,
+                             'missing': missing - self.no_slot, 'noSlot': self.no_slot}
                 return False
             made.append(item)
         if self._target(zone_id) != owner:
             self._destroy(made)
             return False
         removed = self._destroy(targets)
-        self.last = {'created': len(made), 'removed': removed, 'skipped': skipped}
+        # missing = définition absente chez ce joueur ; noSlot = support ou slot natif introuvable.
+        self.last = {'created': len(made), 'removed': removed, 'skipped': skipped,
+                     'missing': missing - self.no_slot, 'noSlot': self.no_slot}
         log('terrain_apply', 'created:%d removed:%d skipped:%d missing:%d' % (len(made), removed, skipped, missing))
         return skipped == 0 and removed == len(plan['remove'])
 
@@ -156,6 +161,7 @@ class TerrainApplier:
                 return None
             if row[7] == 1:
                 if not self.place_parent(item, int(zone_id), row, excluded):
+                    self.no_slot += 1
                     item.destroy(source=item, cause=CAUSE)
                     return None
             else:
@@ -174,8 +180,13 @@ class TerrainApplier:
 
 
 def place_in_slot(services, reader, item, row, excluded=()):
-    """Slot natif unique, vide et compatible à la position reçue ; aucun parent deviné."""
+    """Slot natif vide et compatible à la position reçue, sur un seul support ; aucun parent deviné.
+
+    Un même support expose souvent plusieurs types de slot (déco petite/moyenne) au même point :
+    on prend alors le premier dans l'ordre natif. Deux supports différents restent ambigus.
+    """
     slots = []
+    owner = None
     for parent in services.object_manager().valid_objects():
         if parent is item or any(parent is old for old in excluded):
             continue
@@ -191,10 +202,11 @@ def place_in_slot(services, reader, item, row, excluded=()):
             if (slot.empty and all(abs(int(round(value * 1000)) - target) <= POSITION_MM
                                   for value, target in zip((position.x, position.y, position.z), row[1:4]))
                     and slot.is_valid_for_placement(obj=item)):
-                slots.append(slot)
-                if len(slots) > 1:
+                if owner is not None and owner is not parent:
                     return False
-    if len(slots) != 1:
+                owner = parent
+                slots.append(slot)
+    if not slots:
         return False
     if row[6] != 1000:
         item.scale = row[6] / 1000.0

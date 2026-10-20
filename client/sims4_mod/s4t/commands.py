@@ -41,6 +41,7 @@ def auto_link():
         from .weather_sync import WeatherSync
         from .relationship_sync import RelationshipSync
         from .calendar_sync import CalendarSync
+        from .mood_sync import MoodSync
         from .character_sync import CharacterSync
         from .presence_sync import PresenceSync
         from .home_lots import HomeLotSync
@@ -83,7 +84,7 @@ def auto_link():
                          interaction_publisher=InteractionPublisher(peer_streams=lambda: dict(motion.streams)),
                          terrain_factory=terrain_factory, offline_guard=OfflineGuard(), season_phase=SeasonPhaseSync(), weather_sync=WeatherSync(), native_probe=native_probe,
                          remote_actions=RemoteActions(motion),
-                         social_syncs=(RelationshipSync(), CalendarSync(store=ConfigStore())),
+                         social_syncs=(RelationshipSync(), CalendarSync(store=ConfigStore()), MoodSync(remote_sims=lambda: validated_remote_sims(households.ghosts, appearance.remote, motion.mapping))),
                          speed_sync=NativeSpeedSync(speed.read, speed.hold, speed.release))
     return _auto
 

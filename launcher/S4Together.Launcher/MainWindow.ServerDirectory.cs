@@ -95,9 +95,19 @@ public partial class MainWindow
             .Select(s => new ServerDirectoryRow(s, directoryHealth.GetValueOrDefault(s.Endpoint))).ToList();
         var view = CollectionViewSource.GetDefaultView(rows);
         view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ServerDirectoryRow.Group)));
+        var filter = DirectoryFilter.Text.Trim();
+        var favoritesOnly = DirectoryScope.SelectedIndex == 1;
+        view.Filter = item => item is ServerDirectoryRow row
+            && (!favoritesOnly || row.Group == "Favoris")
+            && (filter.Length == 0
+                || row.Title.Contains(filter, StringComparison.CurrentCultureIgnoreCase)
+                || row.DisplayEndpoint.Contains(filter, StringComparison.OrdinalIgnoreCase));
         ServerDirectoryList.ItemsSource = view;
         if (selected is not null) ServerDirectoryList.SelectedItem = rows.FirstOrDefault(r => r.Endpoint == selected);
-        DirectoryEmpty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        DirectoryEmpty.Visibility = view.IsEmpty ? Visibility.Visible : Visibility.Collapsed;
+        DirectoryEmpty.Text = rows.Count == 0
+            ? "Aucun serveur public publié ni favori. Utilise « Connexion directe » pour saisir une adresse."
+            : "Aucun serveur ne correspond à ta recherche.";
     }
 
     void Directory_SelectionChanged(object sender, SelectionChangedEventArgs e)

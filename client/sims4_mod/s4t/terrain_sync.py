@@ -31,6 +31,12 @@ def _revision(value):
     return value if type(value) is int and 0 <= value <= MAX_REVISION else None
 
 
+def _last_apply(apply):
+    """Compteurs de la dernière application (TerrainApplier.last), copiés ; None sans applicateur."""
+    last = getattr(getattr(apply, '__self__', None), 'last', None)
+    return dict(last) if isinstance(last, dict) else None
+
+
 def _code(message):
     code = message.get('code')
     return code if isinstance(code, str) and _CODE.fullmatch(code) else 'invalid_request'
@@ -452,7 +458,7 @@ class TerrainSync:
                 if entry.get('attempts', 0) >= MAX_APPLY_ATTEMPTS else RETRY_TICKS)
 
     def status(self):
-        """Diagnostic sans contenu de terrain."""
+        """Diagnostic sans contenu de terrain (compteurs seulement)."""
         if self.unsupported:
             state = 'unsupported'
         elif not self.online:
@@ -476,5 +482,6 @@ class TerrainSync:
                 'fetching': self.fetching[1] if self.fetching else None, 'remote': remote,
                 'rejected': dict(self.rejected), 'applier': self.apply is not None,
                 'readStats': dict(self.read_stats),
+                'lastApply': _last_apply(self.apply),
                 'objectsOnlySupported': self.objects_only,
                 'architecture': 'not_transferred', 'gameReadiness': 'NOT_TESTED_GAME'}

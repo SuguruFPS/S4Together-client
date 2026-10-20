@@ -1,4 +1,9 @@
-S4Together 0.1.74-game-test — mod de test, launcher 0.1.74 (serveur recommandé 0.1.49). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.75-game-test — mod de test, launcher 0.1.75 (serveur recommandé 0.1.50). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.75 — objets du terrain et humeurs communes
+Les objets posés sur le terrain (portes, fenêtres, arbres, décorations, panneaux solaires) se placent mieux chez les autres joueurs.
+L'humeur et les pensées visibles de ton Sim apparaissent sur sa copie chez les autres joueurs.
+Seules les pensées sans effet sur le jeu sont copiées. Demande le serveur 0.1.50.
 
 NOUVEAUTES 0.1.74 — nouveau launcher et serveurs publics automatiques
 Nouvelle présentation : Rejoindre un serveur, Choisir un personnage, Communauté, Paramètres.

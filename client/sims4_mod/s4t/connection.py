@@ -179,7 +179,7 @@ class ConnectionManager:
             raise ValueError('Identifiant requête invalide')
         request = {'v': 1, 'id': request_id, 'type': request_type, 'payload': payload or {}}
         if request_type not in ('local.save-context', 'snapshot', 'chat', 'object.set', 'ping', 'ack', 'character.resume', 'character.bind', 'character.checkpoint',
-                                'game.join', 'game.state', 'game.leave', 'game.snapshot', 'game.appearance.publish', 'game.appearance.list', 'game.appearance.get', 'game.visibility.report',
+                                'game.join', 'game.state', 'game.leave', 'game.snapshot', 'game.appearance.publish', 'game.appearance.list', 'game.appearance.get', 'game.mood.publish', 'game.mood.list', 'game.visibility.report',
                                 'game.interaction', 'game.speed.get', 'game.speed.set', 'terrain.publish', 'terrain.get', 'terrain.catalog',
                                 'property.claim', 'property.release', 'property.move',
                                 'business.claim', 'business.release', 'relationship.set', 'calendar.set', 'calendar.remove'):
