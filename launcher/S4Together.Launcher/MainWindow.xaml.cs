@@ -88,7 +88,7 @@ public partial class MainWindow : Window
     void Nav_Checked(object sender, RoutedEventArgs e)
     {
         if (sender is not RadioButton { Tag: string target } || !IsInitialized) return;
-        foreach (var page in new FrameworkElement[] { PageHome, PageServer, PageSim, PageCommunity, PageGame, PageDiag, PageAdmin })
+        foreach (var page in new FrameworkElement[] { PageHome, PageServer, PageSim, PageCommunity, PageSettings, PageGame, PageDiag, PageAdmin })
             page.Visibility = page.Name == target ? Visibility.Visible : Visibility.Collapsed;
         if (target == "PageHome") RefreshAll();
         if (target == "PageSim" && link is not null && roster is null && !loadingCharacters) _ = LoadCharactersAsync();
@@ -142,7 +142,11 @@ public partial class MainWindow : Window
             : $"Connecté à {link.Address.DisplayEndpoint} en tant que {settings.PlayerName}.";
         HomeBridge.Text = link is null ? "Inactive (connexion au serveur requise)."
             : link.Bridge.ModConnected ? "Le jeu est relié au launcher." : $"Prête sur le port {link.Bridge.Port} : en attente du jeu.";
-        ConnectButton.Content = link is null ? "Se connecter" : "Se déconnecter";
+        ConnectButton.Content = link is null ? "Rejoindre" : "Déconnecter";
+        HomeServerButton.Content = link is null ? "Rejoindre" : "Choisir mon personnage";
+        CharacterServerButton.Content = "Déconnecter";
+        HomeServerButton.IsEnabled = CharacterServerButton.IsEnabled = !busy;
+        CharacterServerButton.Visibility = link is null ? Visibility.Collapsed : Visibility.Visible;
         CatalogDisconnectButton.Visibility = link is null ? Visibility.Collapsed : Visibility.Visible;
         CatalogDisconnectButton.IsEnabled = !busy;
         PlayHint.Text = PlayReadiness();
@@ -180,10 +184,10 @@ public partial class MainWindow : Window
     {
         if (SelectedGame is null) return "Choisis d'abord l'installation du jeu.";
         if (package is null) return packageProblem;
-        if (CurrentModState() is not InstallState.UpToDate) return "Le mod doit être installé ou mis à jour (onglet « Paramètres »).";
-        if (link is null) return "Prêt : « Jouer » te connectera au serveur.";
+        if (CurrentModState() is not InstallState.UpToDate) return "Le mod doit être installé ou mis à jour (Paramètres, « Jeu et mod »).";
+        if (link is null) return "Prêt : « Lancer le jeu » te connectera au serveur.";
         if (link.Bridge.ModConnected) return "Le jeu est connecté. Bon jeu !";
-        return roster is { Selected: null } ? "Prêt. Conseil : crée ou choisis d'abord ton personnage (onglet « Personnages »)." : "Prêt à lancer le jeu.";
+        return roster is { Selected: null } ? "Prêt. Conseil : crée ou choisis d'abord ton personnage (page « Choisir un personnage »)." : "Prêt à lancer le jeu.";
     }
 
     // ---------- Serveur ----------
@@ -218,6 +222,14 @@ public partial class MainWindow : Window
         var result = await HealthProbe.CheckAsync(address, HealthTimeout);
         ServerStatus.Text = result.Ok ? $"Serveur S4Together joignable ({result.LatencyMs} ms)." : result.Message;
     }
+
+    void OpenPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string page }) NavTo(page);
+    }
+
+    // Accueil : la liste des serveurs tant qu'on n'est pas connecté, sinon le choix du personnage.
+    void HomeJoin_Click(object sender, RoutedEventArgs e) => NavTo(link is null ? "PageServer" : "PageSim");
 
     async void Connect_Click(object sender, RoutedEventArgs e)
     {

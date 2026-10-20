@@ -4,30 +4,30 @@
              StartupUri="MainWindow.xaml" ShutdownMode="OnExplicitShutdown">
   <Application.Resources>
     <!-- Palette : clés utilisées aussi depuis le code (FindResource Bg/Panel/Text) : ne pas renommer. -->
-    <SolidColorBrush x:Key="Bg" Color="#10131A"/>
-    <SolidColorBrush x:Key="Panel" Color="#171B25"/>
-    <SolidColorBrush x:Key="Card" Color="#1F2431"/>
-    <SolidColorBrush x:Key="CardHover" Color="#262C3B"/>
-    <SolidColorBrush x:Key="Line" Color="#2F3647"/>
+    <SolidColorBrush x:Key="Bg" Color="#20232E"/>
+    <SolidColorBrush x:Key="Panel" Color="#171A23"/>
+    <SolidColorBrush x:Key="Card" Color="#292D3B"/>
+    <SolidColorBrush x:Key="CardHover" Color="#313646"/>
+    <SolidColorBrush x:Key="Line" Color="#383D4C"/>
     <SolidColorBrush x:Key="Text" Color="#EEF1F7"/>
-    <SolidColorBrush x:Key="MutedBrush" Color="#98A0B5"/>
-    <SolidColorBrush x:Key="Accent" Color="#3FCF8E"/>
-    <SolidColorBrush x:Key="AccentDark" Color="#2BA571"/>
-    <SolidColorBrush x:Key="AccentSoft" Color="#1E3A2F"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#B5BACB"/>
+    <SolidColorBrush x:Key="Accent" Color="#FF835F"/>
+    <SolidColorBrush x:Key="AccentDark" Color="#E96D4D"/>
+    <SolidColorBrush x:Key="AccentSoft" Color="#41302D"/>
     <SolidColorBrush x:Key="Warn" Color="#F0BE5A"/>
     <SolidColorBrush x:Key="Bad" Color="#EF6B71"/>
     <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
-      <GradientStop Color="#4ADE9A" Offset="0"/>
-      <GradientStop Color="#2BB37A" Offset="1"/>
+      <GradientStop Color="#FF9472" Offset="0"/>
+      <GradientStop Color="#FF7650" Offset="1"/>
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="AccentGradientHover" StartPoint="0,0" EndPoint="1,1">
-      <GradientStop Color="#63E8AB" Offset="0"/>
-      <GradientStop Color="#33C487" Offset="1"/>
+      <GradientStop Color="#FFA587" Offset="0"/>
+      <GradientStop Color="#FF8763" Offset="1"/>
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="HeroGradient" StartPoint="0,0" EndPoint="1,1">
-      <GradientStop Color="#1C3B33" Offset="0"/>
-      <GradientStop Color="#1B2235" Offset="0.55"/>
-      <GradientStop Color="#231C35" Offset="1"/>
+      <GradientStop Color="#24444B" Offset="0"/>
+      <GradientStop Color="#2C5156" Offset="0.55"/>
+      <GradientStop Color="#355D5F" Offset="1"/>
     </LinearGradientBrush>
     <DropShadowEffect x:Key="CardShadow" BlurRadius="18" ShadowDepth="3" Direction="270" Opacity="0.28" Color="#000000"/>
     <FontFamily x:Key="Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
@@ -60,7 +60,7 @@
       <Setter Property="Background" Value="{StaticResource Card}"/>
       <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="CornerRadius" Value="6"/>
       <Setter Property="Padding" Value="18"/>
       <Setter Property="Margin" Value="0,0,0,14"/>
       <Setter Property="Effect" Value="{StaticResource CardShadow}"/>
@@ -102,7 +102,7 @@
     </Style>
     <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Background" Value="{StaticResource AccentGradient}"/>
-      <Setter Property="Foreground" Value="#0B1A12"/>
+      <Setter Property="Foreground" Value="#24130E"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Template">
         <Setter.Value>

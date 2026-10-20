@@ -1,4 +1,9 @@
-S4Together 0.1.73-game-test — mod de test, launcher 0.1.73 (serveur recommandé 0.1.48). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.74-game-test — mod de test, launcher 0.1.74 (serveur recommandé 0.1.49). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.74 — nouveau launcher et serveurs publics automatiques
+Nouvelle présentation : Rejoindre un serveur, Choisir un personnage, Communauté, Paramètres.
+Les serveurs réglés en « Public » s'affichent tout seuls dans la liste, quel que soit le PC qui les héberge et leur port.
+Tes sauvegardes vont toujours au serveur auquel tu es connecté.
 
 NOUVEAUTES 0.1.73 — avertissement à la fermeture
 Si tu fermes le launcher pendant que tu es connecté, un message te prévient que cela te déconnecte du serveur.

@@ -54,14 +54,28 @@ public static class PublicServerCatalog
             && !(b[0] == 192 && b[1] == 168) && !(b[0] == 100 && b[1] is >= 64 and <= 127);
     }
 
+    /// <summary>Annuaire automatique : serveurs Public=true vérifiés en TLS par le serveur officiel.</summary>
+    public const string DirectoryUrl = "https://176.170.3.253:27015/directory/servers";
+
+    /// <summary>Annuaire automatique + liste GitHub ; une source suffit, l'autre peut être en panne.</summary>
     public static async Task<IReadOnlyList<KnownServer>> FetchAsync(HttpMessageHandler? handler = null, CancellationToken cancel = default)
+    {
+        var sources = new[] { FetchOneAsync(DirectoryUrl, handler, cancel), FetchOneAsync(Url, handler, cancel) };
+        try { await Task.WhenAll(sources); } catch (Exception) when (sources.Any(s => s.IsCompletedSuccessfully)) { }
+        return Merge(sources.Where(s => s.IsCompletedSuccessfully).Select(s => s.Result));
+    }
+
+    public static IReadOnlyList<KnownServer> Merge(IEnumerable<IReadOnlyList<KnownServer>> lists) =>
+        lists.SelectMany(l => l).DistinctBy(s => s.Endpoint).Take(ServerDirectory.MaxServers).ToArray();
+
+    static async Task<IReadOnlyList<KnownServer>> FetchOneAsync(string url, HttpMessageHandler? handler, CancellationToken cancel)
     {
         using var http = handler is null ? new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false, UseCookies = false })
             : new HttpClient(handler, false);
         http.Timeout = TimeSpan.FromSeconds(5);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel);
         deadline.CancelAfter(TimeSpan.FromSeconds(5));
-        using var response = await http.GetAsync(Url, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
         response.EnsureSuccessStatusCode();
         if (response.Content.Headers.ContentLength > MaxBytes) throw new FormatException("Catalogue de serveurs trop grand.");
         await using var stream = await response.Content.ReadAsStreamAsync(deadline.Token);
