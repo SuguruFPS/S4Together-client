@@ -12,7 +12,7 @@ import sys
 import time
 import traceback
 
-VERSION = '0.1.68-game-test'
+VERSION = '0.1.69-game-test'
 MAX_FRAMES = 8
 
 

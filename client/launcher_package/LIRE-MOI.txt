@@ -1,4 +1,8 @@
-S4Together 0.1.68-game-test — mod de test, launcher 0.1.68 (serveur recommandé 0.1.45). Validation dans Les Sims 4 : NOT_TESTED_GAME
+S4Together 0.1.69-game-test — mod de test, launcher 0.1.69 (serveur recommandé 0.1.46). Validation dans Les Sims 4 : NOT_TESTED_GAME
+
+NOUVEAUTES 0.1.69 — vitesse pendant les visites
+Quand un autre joueur est sur ton terrain, le jeu reste en vitesse normale (x1) pour tout le monde. Dès qu'il repart, tu peux remettre x2 ou x3.
+Les copies des autres joueurs portent le nom de leur personnage.
 
 NOUVEAUTES 0.1.68 — constructions des autres joueurs
 Le launcher envoie au serveur les murs, sols et toits de ta maison, lus dans une copie de ta sauvegarde multijoueur (jamais l'original).

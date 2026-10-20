@@ -96,7 +96,11 @@ class NativeSpeedSync:
             manager.forget(self.pending[0])
             self.pending = self.view = None
         if self.view is not None:
-            if self.view['canControl']:
+            if self.view['canControl'] and self.view.get('maxRate') == 1:
+                # Un visiteur est sur le terrain : x1 impose aussi au proprietaire jusqu'a son depart.
+                self.hold(1)
+                self.held = True
+            elif self.view['canControl']:
                 if self.held:
                     self.release()
                     self.held = False

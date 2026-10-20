@@ -91,13 +91,17 @@ def taken_by_other(snapshot, lot_id, household_id):
 
 
 def player_names(snapshot):
-    """{playerId: nom} : `residents` nomme aussi les propriétaires hors ligne ; `players` (connectés) prime."""
+    """{playerId: nom} : `residents` nomme aussi les propriétaires hors ligne ; `players` (connectés) prime.
+
+    Le nom du personnage (`characterName`) prime sur le nom du compte quand le serveur le fournit.
+    """
     names = {}
     for key in ('residents', 'players'):
         people = snapshot.get(key) if isinstance(snapshot, dict) else None
         for person in people if isinstance(people, list) else []:
             if isinstance(person, dict) and isinstance(person.get('playerId'), str):
-                names[person['playerId']] = person.get('name')
+                character = person.get('characterName')
+                names[person['playerId']] = character if isinstance(character, str) and character.strip() else person.get('name')
     return names
 
 
