@@ -14,3 +14,5 @@ backups/
 artifacts/
 .venv/
 .codex-tmp/
+
+.omc/
